@@ -23,13 +23,16 @@
 //#include <mach/gpio-wifi.h>
 #include <linux/interrupt.h>
 #include <linux/gpio.h>
+#ifdef CONFIG_HAS_EARLYSUSPEND
 #include <linux/earlysuspend.h>
+#endif
 #include <asm/mach/irq.h>
 #include <asm/io.h>
 #include <mach/gpio.h>
 #include <plat/gpio-cfg.h>
 #include <plat/regs-adc.h>
 #include <mach/map.h>
+#include <linux/wakelock.h>
 
 #define axp229_DEBUG 0
 static int axp_probe_status=0;
@@ -42,8 +45,9 @@ struct axp229_chip {
 	struct power_supply		battery;
 	struct power_supply		ac;
 	struct power_supply		usb;
+#ifdef CONFIG_HAS_EARLYSUSPEND
 	struct early_suspend		early_suspend;
-
+#endif
 	int ac_online;
 	/* State Of Connect */
 	int online;
@@ -311,7 +315,7 @@ void axp229_set_arm_voltage(unsigned int target_freq)
 }
 EXPORT_SYMBOL_GPL(axp229_set_arm_voltage);
 
-void axp229_set_core_voltage()
+void axp229_set_core_voltage(void)
 {
     uint8_t axp_reg;
 
@@ -552,12 +556,13 @@ static int __devinit axp229_probe(struct i2c_client *client,
 {
 	struct i2c_adapter *adapter = to_i2c_adapter(client->dev.parent);
 	uint8_t axp_reg;
-	axp_probe_status=0;
 	int ret,err;
 
-    	gpio_request(EXYNOS4_GPX3(2), "GPX3");
-    	gpio_direction_output(EXYNOS4_GPX3(2), 1); 
-    	gpio_free(EXYNOS4_GPX3(2));
+	axp_probe_status=0;
+
+  gpio_request(EXYNOS4_GPX3(2), "GPX3");
+  gpio_direction_output(EXYNOS4_GPX3(2), 1); 
+  gpio_free(EXYNOS4_GPX3(2));
 
 	if (!i2c_check_functionality(adapter, I2C_FUNC_SMBUS_BYTE))
 		return -EIO;
@@ -657,11 +662,11 @@ static int __devinit axp229_probe(struct i2c_client *client,
     //gpio_free(EXYNOS4212_GPM2(1));
 
     //开启USB PHY的电源
-    err = gpio_request_one(EXYNOS4212_GPM2(0),GPIOF_OUT_INIT_LOW, "GPM2");
+    err = gpio_request_one(EXYNOS4X12_GPM2(0),GPIOF_OUT_INIT_LOW, "GPM2");
 	if (err)
 		printk(KERN_ERR "failed to request GPM2_0 ####\n");
-    gpio_set_value(EXYNOS4212_GPM2(0), 1);
-    gpio_free(EXYNOS4212_GPM2(0));
+    gpio_set_value(EXYNOS4X12_GPM2(0), 1);
+    gpio_free(EXYNOS4X12_GPM2(0));
 
 
 #ifdef CONFIG_HAS_EARLYSUSPEND
