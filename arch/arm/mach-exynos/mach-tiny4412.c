@@ -80,6 +80,7 @@
 #include <media/exynos_fimc_is.h>
 #include "common.h"
 #include <media/exynos_flite.h>
+#include <linux/axp229.h>
 
 /* Following are default values for UCON, ULCON and UFCON UART registers */
 #define SMDK4X12_UCON_DEFAULT	(S3C2410_UCON_TXILEVEL |	\

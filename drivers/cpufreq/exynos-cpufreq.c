@@ -18,6 +18,7 @@
 #include <linux/cpufreq.h>
 #include <linux/suspend.h>
 
+#include <linux/axp229.h>
 #include <mach/cpufreq.h>
 
 #include <plat/cpu.h>
@@ -172,14 +173,23 @@ static int exynos_target(struct cpufreq_policy *policy,
 
 	/* When the new frequency is higher than current frequency */
 	if ((freqs.new > freqs.old) && !safe_arm_volt) {
+#ifdef CONFIG_BATTERY_AXP229
+		axp229_set_arm_voltage(target_freq);
+#endif
 		/* Firstly, voltage up to increase frequency */
 		regulator_set_voltage(arm_regulator, arm_volt,
-				arm_volt);
+				     arm_volt + 25000);
 	}
 
 	if (safe_arm_volt)
+	{
+#ifdef CONFIG_BATTERY_AXP229
+		axp229_set_arm_voltage(target_freq);
+#endif
 		regulator_set_voltage(arm_regulator, safe_arm_volt,
-				      safe_arm_volt);
+				     safe_arm_volt + 25000);
+	}
+
 	if (freqs.new != freqs.old)
 		exynos_info->set_freq(old_index, index);
 
@@ -188,9 +198,12 @@ static int exynos_target(struct cpufreq_policy *policy,
 	/* When the new frequency is lower than current frequency */
 	if ((freqs.new < freqs.old) ||
 	   ((freqs.new > freqs.old) && safe_arm_volt)) {
+#ifdef CONFIG_BATTERY_AXP229
+		axp229_set_arm_voltage(target_freq);
+#endif
 		/* down the voltage after frequency change */
 		regulator_set_voltage(arm_regulator, arm_volt,
-				arm_volt);
+				     arm_volt + 25000);
 	}
 
 out:
