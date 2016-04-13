@@ -52,7 +52,7 @@ obj-$(CONFIG_MACH_NURI)			+= mach-nuri.o
 obj-$(CONFIG_MACH_ORIGEN)		+= mach-origen.o
 
 obj-$(CONFIG_MACH_SMDK4212)		+= mach-smdk4x12.o
-obj-$(CONFIG_MACH_SMDK4412)		+= mach-smdk4x12.o
+obj-$(CONFIG_MACH_SMDK4412)		+= mach-smdk4x12.o smdk4x12-lcds.o
 obj-$(CONFIG_MACH_TINY4412)		+= mach-tiny4412.o tiny4412-lcds.o
 
 obj-$(CONFIG_MACH_EXYNOS4_DT)		+= mach-exynos4-dt.o
