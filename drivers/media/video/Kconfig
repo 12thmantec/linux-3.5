@@ -1248,4 +1248,10 @@ config VIDEO_MX2_EMMAPRP
 	    memory to memory. Operations include resizing and format
 	    conversion.
 
+config VIDEO_UTCAMERA
+	tristate "UTCAMERA supporting dual camera driver"
+	depends on I2C && VIDEO_V4L2
+	---help---
+	  This driver supports 	utcamera SoC camera module
+
 endif # V4L_MEM2MEM_DRIVERS
