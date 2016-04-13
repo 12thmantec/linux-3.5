@@ -13,6 +13,8 @@
  * for more details.
  */
 
+#include <linux/kernel.h>
+#include <linux/module.h>
 #include <linux/i2c.h>
 #include <linux/init.h>
 #include <media/v4l2-device.h>
@@ -25,9 +27,7 @@
 #include <linux/io.h>
 
 #include <linux/slab.h>
-#ifdef CONFIG_VIDEO_SAMSUNG_V4L2
-#include <linux/videodev2_samsung.h>
-#endif
+#include <mach/videodev2_samsung.h>
 
 #include <linux/regulator/machine.h>
 
@@ -189,15 +189,15 @@ static int turn_on_cc_camera(void)
 	gpio_free(EXYNOS4_GPX3(3));
 
     //reset pin
-    err = gpio_request_one(EXYNOS4212_GPM1(3),
+    err = gpio_request_one(EXYNOS4X12_GPM1(3),
             GPIOF_OUT_INIT_LOW, "GPM1");
 	if (err)
 		printk(KERN_ERR "[cam0] #### failed to request GPM1_3 ####\n");
 
-    gpio_set_value(EXYNOS4212_GPM1(3), 0);
+    gpio_set_value(EXYNOS4X12_GPM1(3), 0);
     mdelay(20);
-    gpio_set_value(EXYNOS4212_GPM1(3), 1);
-    gpio_free(EXYNOS4212_GPM1(3));
+    gpio_set_value(EXYNOS4X12_GPM1(3), 1);
+    gpio_free(EXYNOS4X12_GPM1(3));
 
 
 	return 0;
@@ -229,15 +229,15 @@ static int turn_on_front_camera(void)
 	gpio_free(EXYNOS4_GPX3(3));
 
     //reset pin
-    err = gpio_request_one(EXYNOS4212_GPM1(3),
+    err = gpio_request_one(EXYNOS4X12_GPM1(3),
             GPIOF_OUT_INIT_LOW, "GPM1");
 	if (err)
 		printk(KERN_ERR "[cam0] #### failed to request GPM1_3 ####\n");
 
-    gpio_set_value(EXYNOS4212_GPM1(3), 0);
+    gpio_set_value(EXYNOS4X12_GPM1(3), 0);
     mdelay(20);
-    gpio_set_value(EXYNOS4212_GPM1(3), 1);
-    gpio_free(EXYNOS4212_GPM1(3));
+    gpio_set_value(EXYNOS4X12_GPM1(3), 1);
+    gpio_free(EXYNOS4X12_GPM1(3));
 
 
 	return 0;
@@ -269,15 +269,15 @@ static int turn_on_back_camera(void)
 	gpio_free(EXYNOS4_GPX3(3));
 
     //reset pin
-    err = gpio_request_one(EXYNOS4212_GPM1(3),
+    err = gpio_request_one(EXYNOS4X12_GPM1(3),
             GPIOF_OUT_INIT_LOW, "GPM1");
 	if (err)
 		printk(KERN_ERR "[cam0] #### failed to request GPM1_3 ####\n");
 
-    gpio_set_value(EXYNOS4212_GPM1(3), 0);
+    gpio_set_value(EXYNOS4X12_GPM1(3), 0);
     mdelay(20);
-    gpio_set_value(EXYNOS4212_GPM1(3), 1);
-    gpio_free(EXYNOS4212_GPM1(3));
+    gpio_set_value(EXYNOS4X12_GPM1(3), 1);
+    gpio_free(EXYNOS4X12_GPM1(3));
 
 
 	return 0;
@@ -1877,16 +1877,16 @@ static int ut2055_s_ctrl(struct v4l2_subdev *sd, struct v4l2_control *ctrl)
 	case V4L2_CID_CAMERA_FLASH_START:
 			if(flash_light==1)
 			{
-    				gpio_request(EXYNOS4212_GPM2(4), "GPM2");
-    				gpio_direction_output(EXYNOS4212_GPM2(4), 1);
-    				gpio_free(EXYNOS4212_GPM2(4));
+    				gpio_request(EXYNOS4X12_GPM2(4), "GPM2");
+    				gpio_direction_output(EXYNOS4X12_GPM2(4), 1);
+    				gpio_free(EXYNOS4X12_GPM2(4));
 			}
 		break;
 
 	case V4L2_CID_CAMERA_FLASH_STOP:
-    			gpio_request(EXYNOS4212_GPM2(4), "GPM2");
-    			gpio_direction_output(EXYNOS4212_GPM2(4), 0);
-    			gpio_free(EXYNOS4212_GPM2(4));
+    			gpio_request(EXYNOS4X12_GPM2(4), "GPM2");
+    			gpio_direction_output(EXYNOS4X12_GPM2(4), 0);
+    			gpio_free(EXYNOS4X12_GPM2(4));
 		break;
 
 	default:
@@ -3139,7 +3139,7 @@ static int ut2055_init(struct v4l2_subdev *sd, u32 val)
 	struct i2c_client *client = v4l2_get_subdevdata(sd);
 	int err;
 	unsigned char test_hm2055[3];
-	unsigned char test_hm5065[2];
+	unsigned char test_hm5065[3];
 	int i;
 	int retry;
 	int count;
@@ -3493,24 +3493,14 @@ MODULE_DEVICE_TABLE(i2c, ut2055_id);
 static struct i2c_driver ut2055_i2c_driver = {
 	.driver = {
 		.name	= UT2055_DRIVER_NAME,
+		.owner = THIS_MODULE,
 	},
 	.probe		= ut2055_probe,
 	.remove		= __devexit_p(ut2055_remove),
 	.id_table	= ut2055_id,
 };
 
-static int __init ut2055_mod_init(void)
-{
-	return i2c_add_driver(&ut2055_i2c_driver);
-}
-
-static void __exit ut2055_mod_exit(void)
-{
-	i2c_del_driver(&ut2055_i2c_driver);
-}
-module_init(ut2055_mod_init);
-module_exit(ut2055_mod_exit);
-
+module_i2c_driver(ut2055_i2c_driver);
 
 MODULE_AUTHOR("Goeun Lee <ge.lee@samsung.com>");
 MODULE_DESCRIPTION("driver for Fusitju UT2055 LS 8MP camera");
