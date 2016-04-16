@@ -84,7 +84,9 @@
 #ifdef CONFIG_VIDEO_UTCAMERA
 #include <media/ut2055_platform.h>
 #endif
-
+#ifdef CONFIG_SENSORS_MMC328xMA_MAG
+#include <linux/mmc328x.h>
+#endif
 /* Following are default values for UCON, ULCON and UFCON UART registers */
 #define SMDK4X12_UCON_DEFAULT	(S3C2410_UCON_TXILEVEL |	\
 				 S3C2410_UCON_RXILEVEL |	\
@@ -1165,6 +1167,18 @@ static struct i2c_board_info smdk4x12_i2c_devs3[] __initdata = {
 #endif
 };
 
+static struct i2c_board_info smdk4x12_i2c_devs5[] __initdata = {
+    {   
+        I2C_BOARD_INFO("mma865x",    0x1D),
+    },
+#ifdef CONFIG_SENSORS_MMC328xMA_MAG
+    {   
+        I2C_BOARD_INFO(MMC328X_I2C_NAME, MMC328X_I2C_ADDR),
+    },
+#endif
+
+};
+
 /* I2C module and id for HDMIPHY */
 static struct i2c_board_info smdk4x12_i2c_hdmiphy[] __initdata = {
 	{ I2C_BOARD_INFO("hdmiphy-exynos4412", 0x38), }
@@ -2163,6 +2177,10 @@ static void __init smdk4x12_machine_init(void)
 			ARRAY_SIZE(smdk4x12_i2c_devs3));
 
 	s3c_i2c4_set_platdata(NULL);
+
+	s3c_i2c5_set_platdata(NULL);
+	i2c_register_board_info(5, smdk4x12_i2c_devs5,
+			ARRAY_SIZE(smdk4x12_i2c_devs5));
 
 	smdk4x12_rtc_wake_init();
 	smdk4x12_pmu_wdt_init();

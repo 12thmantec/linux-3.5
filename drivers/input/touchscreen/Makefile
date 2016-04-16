@@ -76,3 +76,4 @@ obj-$(CONFIG_TOUCHSCREEN_TPS6507X)	+= tps6507x-ts.o
 obj-$(CONFIG_TOUCHSCREEN_FT5X0X)	+= ft5x06_ts.o
 obj-$(CONFIG_TOUCHSCREEN_1WIRE)		+= tiny4412_1wire_host.o
 obj-$(CONFIG_TOUCHSCREEN_IF)		+= ts-if.o
+obj-y					+= mmc3280/
