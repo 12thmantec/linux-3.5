@@ -2203,10 +2203,10 @@ static void __init smdk4x12_machine_init(void)
 		max77686_populate_pdata();
 #endif
 	}
-
+#if defined(CONFIG_SAMSUNG_DEV_ADC)
 	s3c_adc_set_platdata(NULL);
 	s3c_adc_setname("samsung-adc-v4");
-
+#endif
 	s3c_i2c0_set_platdata(&tiny4412_i2c0_data);
 	i2c_register_board_info(0, smdk4x12_i2c_devs0,
 			ARRAY_SIZE(smdk4x12_i2c_devs0));
