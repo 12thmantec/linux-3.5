@@ -81,6 +81,9 @@
 #include "common.h"
 #include <media/exynos_flite.h>
 #include <linux/axp229.h>
+#ifdef CONFIG_VIDEO_UTCAMERA
+#include <media/ut2055_platform.h>
+#endif
 
 /* Following are default values for UCON, ULCON and UFCON UART registers */
 #define SMDK4X12_UCON_DEFAULT	(S3C2410_UCON_TXILEVEL |	\
@@ -960,17 +963,6 @@ static struct i2c_board_info smdk4x12_i2c_devs0[] __initdata = {
 #endif
 };
 
-#ifdef CONFIG_TOUCHSCREEN_FT5X0X
-#include <plat/ft5x0x_touch.h>
-static struct ft5x0x_i2c_platform_data ft5x0x_pdata = {
-	.gpio_irq		= EXYNOS4_GPX1(6),
-	.irq_cfg		= S3C_GPIO_SFN(0xf),
-	.screen_max_x	= 800,
-	.screen_max_y	= 1280,
-	.pressure_max	= 255,
-};
-#endif
-
 static struct s3c2410_platform_i2c tiny4412_i2c1_data __initdata = {
 	.flags			= 0,
 	.bus_num		= 1,
@@ -980,12 +972,6 @@ static struct s3c2410_platform_i2c tiny4412_i2c1_data __initdata = {
 };
 
 static struct i2c_board_info smdk4x12_i2c_devs1[] __initdata = {
-#ifdef CONFIG_TOUCHSCREEN_FT5X0X
-	{
-		I2C_BOARD_INFO("ft5x0x_ts", (0x70 >> 1)),
-		.platform_data = &ft5x0x_pdata,
-	},
-#endif
 #ifdef CONFIG_SND_SOC_SAMSUNG_SMDK_WM8994 
 	{ 
 		I2C_BOARD_INFO("wm8994", 0x1a), 
@@ -1000,20 +986,6 @@ static struct i2c_board_info smdk4x12_i2c_devs2[] __initdata = {
 
 
 static struct s5p_platform_mipi_csis mipi_csis_platdata = {
-#ifdef CONFIG_VIDEO_S5K6A3
-	.clk_rate	= 160000000UL,
-	.lanes		= 1,
-	.alignment	= 24,
-	.hs_settle	= 12,
-	.phy_enable	= s5p_csis_phy_enable,
-#endif
-#ifdef CONFIG_VIDEO_M5MOLS
-	.clk_rate	= 166000000UL,
-	.lanes		= 2,
-	.alignment	= 32,
-	.hs_settle	= 12,
-	.phy_enable	= s5p_csis_phy_enable,
-#endif
 };
 #define GPIO_CAM_LEVEL_EN(n)	EXYNOS4_GPX1(2)
 #define GPIO_CAM_8M_ISP_INT	EXYNOS4_GPX3(3)	/* XEINT_27 */
@@ -1034,108 +1006,108 @@ static struct i2c_board_info m5mols_board_info = {
 	.platform_data = &m5mols_platdata,
 };
 
-#ifdef CONFIG_VIDEO_S5K6A3
-static struct i2c_board_info s5k6a3_sensor_info = {
-        .type = "S5K6A3",
-};
-#endif
-
-#ifdef CONFIG_VIDEO_S5K6A3
-static int smdk4x12_cam1_reset(int dummy) 
+#ifdef CONFIG_VIDEO_UTCAMERA
+static int camera_powerctrl(int onoff)
 {
-        int err;
 
-        /* Camera B */
+	if (onoff) 
+	{
+		axp229_set_voltage(LDOIO0,1800,1);
+		axp229_set_voltage(ELDO2,1500,1);
+		axp229_set_voltage(ELDO3,2800,1);
+    		gpio_request(EXYNOS4X12_GPM1(3), "GPM1");
+    		gpio_direction_output(EXYNOS4X12_GPM1(3), 0);
+    		gpio_free(EXYNOS4X12_GPM1(3));
+		mdelay(10);
+    		gpio_request(EXYNOS4X12_GPM1(3), "GPM1");
+    		gpio_direction_output(EXYNOS4X12_GPM1(3), 1);
+    		gpio_free(EXYNOS4X12_GPM1(3));
+	}
+	else
+	{
+		axp229_set_voltage(LDOIO0,1800,0);
+		axp229_set_voltage(ELDO2,1500,0);
+		axp229_set_voltage(ELDO3,2800,0);
+    		gpio_request(EXYNOS4X12_GPM2(4), "GPM2_1");
+    		gpio_direction_output(EXYNOS4X12_GPM2(4), 0);
+    		gpio_free(EXYNOS4X12_GPM2(4));
+    		gpio_request(EXYNOS4X12_GPM1(3), "GPM1");
+    		gpio_direction_output(EXYNOS4X12_GPM1(3), 0);
+    		gpio_free(EXYNOS4X12_GPM1(3));
+	}
 
-        err = gpio_request(EXYNOS4_GPX1(0), "GPX1");
-        if (err)
-                printk(KERN_ERR "#### failed to request GPX1_0 ####\n");
-
-        s3c_gpio_setpull(EXYNOS4_GPX1(0), S3C_GPIO_PULL_NONE);
-        gpio_direction_output(EXYNOS4_GPX1(0), 0);
-        gpio_direction_output(EXYNOS4_GPX1(0), 1);
-        gpio_free(EXYNOS4_GPX1(0));
-
-        return 0;
+	return 0;
 }
 
-static struct s3c_platform_camera s5k6a3 = {
-        .id             = CAMERA_CSI_D,
-        .clk_name       = "sclk_cam1",
-        .cam_power      = smdk4x12_cam1_reset,
-        .type           = CAM_TYPE_MIPI,
-        .fmt            = MIPI_CSI_RAW10,
-        .order422       = CAM_ORDER422_8BIT_YCBYCR,
-        .pixelformat    = V4L2_PIX_FMT_UYVY,
-        .line_length    = 1920,
-        .width          = 1920,
-        .height         = 1080,
-        .window         = {
-                .left   = 0,
-                .top    = 0,
-                .width  = 1920,
-                .height = 1080,
-        },
-        .srclk_name     = "xusbxti",
-        .clk_rate       = 24000000,
-        .mipi_lanes     = 1,
-        .mipi_settle    = 12,
-        .mipi_align     = 24,
-
-        .initialized    = 0,
-        .flite_id       = FLITE_IDX_B,
-        .use_isp        = true,
-        .sensor_index   = 102,
-	.type  		= CAM_TYPE_MIPI,
-        .use_isp 	= true,
-        .inv_pclk 	= 0,
-        .inv_vsync 	= 0,
-        .inv_href 	= 0,
-        .inv_hsync 	= 0,
+static struct ut2055_platform_data ut2055_plat = {
+	.default_width = 640,
+	.default_height = 480,
+	.pixelformat = V4L2_PIX_FMT_YUYV,
+	.freq = 24000000,
+	.is_mipi = 0,
 };
+static struct i2c_board_info ut2055_i2c_info = {
+	I2C_BOARD_INFO("UT2055", 0x24), //0x24是HM2057的I2C地址
+	.platform_data = &ut2055_plat,
+};
+
+static struct s3c_platform_camera ut2055 = {
+	.id		= CAMERA_PAR_A,
+	.clk_name	= "sclk_cam0",
+	.i2c_busnum	= 4,
+	.type		= CAM_TYPE_ITU,
+	.fmt		= ITU_601_YCBCR422_8BIT,
+	.order422	= CAM_ORDER422_8BIT_CBYCRY,
+	.info		= &ut2055_i2c_info,
+	.pixelformat	= V4L2_PIX_FMT_YUYV,
+	.srclk_name	= "xusbxti",
+	.clk_rate	= 24000000,
+	.line_length	= 1920,
+	.width		= 1600,
+	.height		= 1200,
+	.window		= {
+		.left	= 0,
+		.top	= 0,
+		.width	= 1600,
+		.height	= 1200,
+	},
+
+	/* Polarity */
+	.inv_pclk	= 0,
+	.inv_vsync	= 1,
+	.inv_href	= 0,
+	.inv_hsync	= 0,
+	.reset_camera	= 1,
+	.initialized	= 0,
+	.cam_power	= camera_powerctrl,
+};
+#endif
 
 
 static struct s3c_platform_fimc fimc_plat = {
-	.default_cam    = CAMERA_CSI_D,
-	.camera         = {
-			&s5k6a3,
+#ifdef CONFIG_VIDEO_UTCAMERA
+	.camera		= {	
+            &ut2055,
+            &ut2055
 	},
+#endif
+	.hw_ver		= 0x51,
 };
-#endif
+
 static struct s5p_fimc_isp_info smdk4x12_camera_sensors[] = {
-#ifdef CONFIG_VIDEO_S5K6A3
 	{
-                .board_info     = &s5k6a3_sensor_info,
-                .clk_frequency  = 24000000UL,
-                .bus_type       = FIMC_MIPI_CSI2,
-		.i2c_bus_num    = 1,
-                .mux_id         = 1, /* A-Port : 0, B-Port : 1 */
-                .flite_id       = FLITE_IDX_B,
-                .cam_power      = smdk4x12_cam1_reset,
-		.flags          = 0,
-                .csi_data_align = 24,
-                .use_isp        = true,
-        },
-#endif
-#ifdef CONFIG_VIDEO_M5MOLS
-	{
-		.mux_id		= 0,
-		.flags		= V4L2_MBUS_PCLK_SAMPLE_FALLING |
-				  V4L2_MBUS_VSYNC_ACTIVE_LOW,
-		.bus_type	= FIMC_MIPI_CSI2,
-		.board_info	= &m5mols_board_info,
-		.i2c_bus_num	= 4,
-		.clk_frequency	= 24000000UL,
-		.csi_data_align	= 32,
+		.board_info	  = &ut2055_i2c_info,
+		.clk_frequency  = 24000000UL,
+		.bus_type	  = FIMC_ITU_601,
+		.i2c_bus_num	  = 7,
+		.mux_id	  = 0, /* A-Port : 0, B-Port : 1 */
+		.flags		  = V4L2_MBUS_VSYNC_ACTIVE_LOW,
 	},
-#endif
 };
 static struct s5p_platform_fimc fimc_md_platdata = {
 	.isp_info	= smdk4x12_camera_sensors,
 	.num_clients	= ARRAY_SIZE(smdk4x12_camera_sensors),
-#ifdef CONFIG_VIDEO_S5K6A3
 	.fimc_plat	= &fimc_plat,
-#endif
 };
 
 static struct gpio smdk4x12_camera_gpios[] = {
@@ -1144,34 +1116,8 @@ static struct gpio smdk4x12_camera_gpios[] = {
 };
 static void __init smdk4x12_camera_init(void)
 {
-	s3c_set_platdata(&mipi_csis_platdata, sizeof(mipi_csis_platdata),
-			 &s5p_device_mipi_csis0);
-	s3c_set_platdata(&mipi_csis_platdata, sizeof(mipi_csis_platdata),
-                         &s5p_device_mipi_csis1);
 	s3c_set_platdata(&fimc_md_platdata,  sizeof(fimc_md_platdata),
 			 &s5p_device_fimc_md);
-	
-
-	if (gpio_request_array(smdk4x12_camera_gpios,
-			       ARRAY_SIZE(smdk4x12_camera_gpios))) {
-		pr_err("%s: GPIO request failed\n", __func__);
-		return;
-	}
-
-	if (!s3c_gpio_cfgpin(GPIO_CAM_8M_ISP_INT, S3C_GPIO_SFN(0xf)))
-	{
-        	s3c_gpio_setpull(GPIO_CAM_8M_ISP_INT, S3C_GPIO_PULL_NONE);
-		m5mols_board_info.irq = gpio_to_irq(GPIO_CAM_8M_ISP_INT);
-	}
-	else
-		pr_err("Failed to configure 8M_ISP_INT GPIO\n");
-
-	/* Free GPIOs controlled directly by the sensor drivers. */
-	gpio_free(GPIO_CAM_MEGA_nRST);
-	gpio_free(GPIO_CAM_8M_ISP_INT);
-
-	if (exynos4_fimc_setup_gpio(S5P_CAMPORT_A))
-		pr_err("Camera port A setup failed\n");
 }
 
 #ifdef CONFIG_MXC_MMA845X
@@ -1972,14 +1918,7 @@ static void __init smdk4x12_set_camera_flite_platdata(void)
 {
         int flite0_cam_index = 0;
         int flite1_cam_index = 0;
-#ifdef CONFIG_VIDEO_S5K6A3
-#ifdef CONFIG_S5K6A3_CSI_C
-        exynos_flite0_default_data.cam[flite0_cam_index++] = &s5k6a3;
-#endif
-#ifdef CONFIG_S5K6A3_CSI_D
-        exynos_flite1_default_data.cam[flite1_cam_index++] = &s5k6a3;
-#endif
-#endif
+
         __set_flite_camera_config(&exynos_flite0_default_data, 0, flite0_cam_index);
         __set_flite_camera_config(&exynos_flite1_default_data, 0, flite1_cam_index);
 }
@@ -2274,7 +2213,7 @@ static void __init smdk4x12_machine_init(void)
 #ifdef CONFIG_VIDEO_EXYNOS_FIMG2D
 	s5p_fimg2d_set_platdata(&fimg2d_data);
 #endif
-#if defined(CONFIG_VIDEO_M5MOLS) || defined(CONFIG_VIDEO_S5K6A3)
+#if defined(CONFIG_VIDEO_UTCAMERA)
 	smdk4x12_camera_init();
 #endif
 #ifdef CONFIG_VIDEO_EXYNOS_FIMC_LITE
