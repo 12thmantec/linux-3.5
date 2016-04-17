@@ -1225,7 +1225,9 @@ static struct samsung_bl_gpio_info smdk4x12_bl_gpio_info = {
 
 static struct platform_pwm_backlight_data smdk4x12_bl_data = {
 	.pwm_id = 1,
-	.pwm_period_ns  = 1000,
+	.pwm_period_ns  = 78770,
+	.max_brightness = 255,
+	.dft_brightness = 128,//128,
 };
 
 static struct s3c_fb_pd_win smdk4x12_fb_win0 = {
