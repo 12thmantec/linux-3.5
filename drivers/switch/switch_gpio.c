@@ -24,6 +24,34 @@
 #include <linux/switch.h>
 #include <linux/workqueue.h>
 #include <linux/gpio.h>
+#include <linux/delay.h>
+
+#include <mach/gpio.h>
+#include <plat/gpio-cfg.h>
+#include <linux/slab.h>
+
+#include <linux/err.h>
+#include <linux/delay.h>
+
+/*
+ * GPIO pin description for Switch
+ *
+ * - HP_DET   : GPX2_2 (WAKEUP_INT2[2])
+ * - HOOK_DET : GPX1_3 (WAKEUP_INT1[3])
+ * - UART_SW  : GPC1_0
+ */
+
+
+/*
+ * HeadSet type definition
+ */
+#define BIT_HEADSET             (1<<0)  // Speaker and Mic
+#define BIT_HEADSET_NO_MIC      (1<<1)  // Only Speaker
+
+static int switch_gpio_active = 0;
+/*wenpin.cui: because initial detecion code has been moved to wm8994 driver, 
+so initial state 0 will bring problem*/
+static int switch_current_state = -1;
 
 struct gpio_switch_data {
 	struct switch_dev sdev;
@@ -33,17 +61,40 @@ struct gpio_switch_data {
 	const char *state_on;
 	const char *state_off;
 	int irq;
-	struct work_struct work;
+        struct delayed_work work;
 };
+
+
 
 static void gpio_switch_work(struct work_struct *work)
 {
-	int state;
+	int state = 0;
+	int temp = 0;
+	struct delayed_work *dwork =  to_delayed_work(work);
 	struct gpio_switch_data	*data =
-		container_of(work, struct gpio_switch_data, work);
+		container_of(dwork, struct gpio_switch_data, work);
 
+	// Get "physical" level(0: HS inserted, 1: HS removed)
 	state = gpio_get_value(data->gpio);
+	mdelay(100); 	// Wait before 2nd sampling to detect the changed status of HP_DET.
+	if (state != gpio_get_value(data->gpio))
+		return;
+
+	//state = !state;	// Get the state from "physical" level(0: HS removed, 1: HS inserted)
+    if(0 == state){
+        state = 1;
+    }else{
+        state = 0;
+    }
+    //samsung_get_adc_value();
+	if (switch_current_state != state)
+	{
+		// Set the state and make the uevent to platfrom(HeadsetObserver).
+		switch_set_state(&data->sdev, state);
+		switch_current_state = state;
+	}
 	switch_set_state(&data->sdev, state);
+	return;
 }
 
 static irqreturn_t gpio_irq_handler(int irq, void *dev_id)
@@ -51,7 +102,7 @@ static irqreturn_t gpio_irq_handler(int irq, void *dev_id)
 	struct gpio_switch_data *switch_data =
 	    (struct gpio_switch_data *)dev_id;
 
-	schedule_work(&switch_data->work);
+	schedule_delayed_work(&switch_data->work, HZ/2);
 	return IRQ_HANDLED;
 }
 
@@ -60,6 +111,7 @@ static ssize_t switch_gpio_print_state(struct switch_dev *sdev, char *buf)
 	struct gpio_switch_data	*switch_data =
 		container_of(sdev, struct gpio_switch_data, sdev);
 	const char *state;
+
 	if (switch_get_state(sdev))
 		state = switch_data->state_on;
 	else
@@ -91,11 +143,11 @@ static int gpio_switch_probe(struct platform_device *pdev)
 	switch_data->state_off = pdata->state_off;
 	switch_data->sdev.print_state = switch_gpio_print_state;
 
-    ret = switch_dev_register(&switch_data->sdev);
+	ret = switch_dev_register(&switch_data->sdev);
 	if (ret < 0)
 		goto err_switch_dev_register;
 
-	ret = gpio_request(switch_data->gpio, pdev->name);
+	ret = gpio_request(switch_data->gpio, "GPX2");
 	if (ret < 0)
 		goto err_request_gpio;
 
@@ -103,22 +155,25 @@ static int gpio_switch_probe(struct platform_device *pdev)
 	if (ret < 0)
 		goto err_set_gpio_input;
 
-	INIT_WORK(&switch_data->work, gpio_switch_work);
+	s3c_gpio_setpull(switch_data->gpio, S3C_GPIO_PULL_NONE);
 
-	switch_data->irq = gpio_to_irq(switch_data->gpio);
+	INIT_DELAYED_WORK(&switch_data->work, gpio_switch_work);
+
+	switch_data->irq = platform_get_irq(pdev, 0);   // WAKEUP_INT2[2]
 	if (switch_data->irq < 0) {
 		ret = switch_data->irq;
 		goto err_detect_irq_num_failed;
 	}
 
 	ret = request_irq(switch_data->irq, gpio_irq_handler,
-			  IRQF_TRIGGER_LOW, pdev->name, switch_data);
+		(IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING), pdev->name, switch_data);
+
 	if (ret < 0)
 		goto err_request_irq;
 
-	/* Perform initial detection */
-	gpio_switch_work(&switch_data->work);
-
+	schedule_delayed_work(&switch_data->work, HZ/2);/*wenpin.cui: init check*/
+	//debug_switch_to_hs(true);
+		
 	return 0;
 
 err_request_irq:
@@ -126,20 +181,20 @@ err_detect_irq_num_failed:
 err_set_gpio_input:
 	gpio_free(switch_data->gpio);
 err_request_gpio:
-    switch_dev_unregister(&switch_data->sdev);
+	switch_dev_unregister(&switch_data->sdev);
 err_switch_dev_register:
 	kfree(switch_data);
 
-	return ret;
+        return ret;
 }
 
 static int __devexit gpio_switch_remove(struct platform_device *pdev)
 {
 	struct gpio_switch_data *switch_data = platform_get_drvdata(pdev);
 
-	cancel_work_sync(&switch_data->work);
+	cancel_delayed_work_sync(&switch_data->work);
 	gpio_free(switch_data->gpio);
-    switch_dev_unregister(&switch_data->sdev);
+	switch_dev_unregister(&switch_data->sdev);
 	kfree(switch_data);
 
 	return 0;
@@ -163,6 +218,9 @@ static void __exit gpio_switch_exit(void)
 {
 	platform_driver_unregister(&gpio_switch_driver);
 }
+
+
+//module_param_call(switch_gpio_active, debug2hs_store, debug2hs_show, &switch_gpio_active, (S_IRUSR | S_IWUSR));
 
 module_init(gpio_switch_init);
 module_exit(gpio_switch_exit);

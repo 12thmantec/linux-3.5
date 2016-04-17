@@ -87,6 +87,7 @@
 #ifdef CONFIG_SENSORS_MMC328xMA_MAG
 #include <linux/mmc328x.h>
 #endif
+#include <linux/switch.h>
 /* Following are default values for UCON, ULCON and UFCON UART registers */
 #define SMDK4X12_UCON_DEFAULT	(S3C2410_UCON_TXILEVEL |	\
 				 S3C2410_UCON_RXILEVEL |	\
@@ -1773,6 +1774,37 @@ static struct platform_device exynos4_busfreq = {
 	.name = "exynos-busfreq",
 };
 
+#ifdef CONFIG_TOTOPS_RFID
+static struct platform_device totops_rfid = {
+	.id = -1,
+	.name = "totops-rfid",
+};
+#endif
+
+#ifdef CONFIG_SWITCH_GPIO
+static struct gpio_switch_platform_data headset_switch_data = {
+    .name = "h2w",
+    .gpio = EXYNOS4_GPX2(6),
+};
+
+static struct resource switch_gpio_resource[] = {
+        [0] = {
+                .start  = IRQ_EINT(22),
+                .end    = IRQ_EINT(22),
+                .flags  = IORESOURCE_IRQ,
+        },
+};
+
+static struct platform_device headset_switch_device = {
+    .name = "switch-gpio",
+    .dev = {
+        .platform_data = &headset_switch_data,
+    },
+    .num_resources  = ARRAY_SIZE(switch_gpio_resource),
+    .resource = switch_gpio_resource,
+};
+#endif
+
 #ifdef CONFIG_BATTERY_SAMSUNG
 static struct platform_device samsung_device_battery = {
 	.name	= "samsung-fake-battery",
@@ -1883,6 +1915,12 @@ static struct platform_device *smdk4x12_devices[] __initdata = {
 #ifdef CONFIG_BATTERY_SAMSUNG
 	&samsung_device_battery,
 #endif
+#ifdef CONFIG_TOTOPS_RFID
+	&totops_rfid,
+#endif
+#ifdef CONFIG_SWITCH_GPIO
+    &headset_switch_device,
+#endif
 };
 
 static void __init smdk4x12_map_io(void)
@@ -1966,11 +2004,11 @@ static void __init smdk4x12_usbswitch_init(void)
 	struct s5p_usbswitch_platdata *pdata = &smdk4x12_usbswitch_pdata;
 	int err;
 
+    /* host detect是指exynos 4412自己作为host端，用于连接U盘等usb外设 */
 	pdata->gpio_host_detect = EXYNOS4_GPX3(5); /* low active */
-	err = gpio_request_one(pdata->gpio_host_detect, GPIOF_IN,
-							"HOST_DETECT");
+	err = gpio_request_one(pdata->gpio_host_detect, GPIOF_IN, "HOST_DETECT");
 	if (err) {
-		pr_err("failed to request gpio_host_detect\n");
+		printk(KERN_ERR "failed to request gpio_host_detect\n");
 		return;
 	}
 
@@ -1978,11 +2016,11 @@ static void __init smdk4x12_usbswitch_init(void)
 	s3c_gpio_setpull(pdata->gpio_host_detect, S3C_GPIO_PULL_NONE);
 	gpio_free(pdata->gpio_host_detect);
 
+    /* device detect是指exynos 4412自己作为device端，当作外设连接到PC */
 	pdata->gpio_device_detect = EXYNOS4_GPX3(4); /* high active */
-	err = gpio_request_one(pdata->gpio_device_detect, GPIOF_IN,
-							"DEVICE_DETECT");
+	err = gpio_request_one(pdata->gpio_device_detect, GPIOF_IN, "DEVICE_DETECT");
 	if (err) {
-		pr_err("failed to request gpio_host_detect for\n");
+		printk(KERN_ERR "failed to request gpio_host_detect for\n");
 		return;
 	}
 
@@ -1990,16 +2028,27 @@ static void __init smdk4x12_usbswitch_init(void)
 	s3c_gpio_setpull(pdata->gpio_device_detect, S3C_GPIO_PULL_NONE);
 	gpio_free(pdata->gpio_device_detect);
 
-	pdata->gpio_host_vbus = EXYNOS4_GPL2(0);
-	err = gpio_request_one(pdata->gpio_host_vbus, GPIOF_OUT_INIT_LOW,
-							"HOST_VBUS_CONTROL");
-	if (err) {
-		pr_err("failed to request gpio_host_vbus\n");
-		return;
-	}
 
+    /* 现在的vbus连接到了exynos 4412的otg功能接口上，没有连接到任何gpio接口 */
+    /*
+	pdata->gpio_host_vbus = EXYNOS4_GPX1(6);
+	gpio_request(EXYNOS4_GPX1(6), "GPX1");
 	s3c_gpio_setpull(pdata->gpio_host_vbus, S3C_GPIO_PULL_NONE);
-	gpio_free(pdata->gpio_host_vbus);
+	gpio_free(EXYNOS4_GPX1(6));
+    */
+
+    /*
+    pdata->gpio_host_vbus = EXYNOS4_GPL2(0);
+    err = gpio_request_one(pdata->gpio_host_vbus, GPIOF_OUT_INIT_LOW, "HOST_VBUS_CONTROL");
+    if (err) {
+        printk(KERN_ERR "failed to request gpio_host_vbus\n");
+        return;
+    }
+
+    s3c_gpio_setpull(pdata->gpio_host_vbus, S3C_GPIO_PULL_NONE);
+    gpio_free(pdata->gpio_host_vbus);
+    printk(KERN_ERR "gpio host vbus: 0x%x\n",pdata->gpio_host_vbus);
+    */
 
 	s5p_usbswitch_set_platdata(pdata);
 }
