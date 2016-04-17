@@ -1165,6 +1165,11 @@ static struct i2c_board_info smdk4x12_i2c_devs3[] __initdata = {
 		.platform_data = &mma7660_pdata,
 	},
 #endif
+#ifdef CONFIG_TOUCHSCREEN_FT5X0X
+	{
+		I2C_BOARD_INFO("ft5x0x_ts", 0x38),   
+	},
+#endif
 };
 
 static struct i2c_board_info smdk4x12_i2c_devs5[] __initdata = {
@@ -2132,12 +2137,6 @@ static void initialize_non_prime_clocks(void)
 
 static void __init smdk4x12_machine_init(void)
 {
-#ifdef CONFIG_TOUCHSCREEN_FT5X0X
-	struct s3cfb_lcd *lcd = tiny4412_get_lcd();
-	ft5x0x_pdata.screen_max_x = lcd->width;
-	ft5x0x_pdata.screen_max_y = lcd->height;
-#endif
-
 	exynos_bootdev_init();
 	tiny4412_hwrev_init();
 

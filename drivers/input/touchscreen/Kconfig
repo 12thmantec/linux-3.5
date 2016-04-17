@@ -309,24 +309,24 @@ config TOUCHSCREEN_IF
 	bool
 	default y if TOUCHSCREEN_1WIRE
 
-config TOUCHSCREEN_FT5X0X
-	tristate "FocalTech ft5x0x TouchScreen driver"
-	depends on MACH_TINY4412
-	help
-	  Say Y here to support FocalTech ft5x0x TouchScreen on
-	  FriendlyARM Tiny4412 development board.
-
-	  If unsure, say N.
-
-	  To compile this driver as a module, choose M here: the
-	  module will be called ft5x06_ts.ko.
-
-config TOUCHSCREEN_FT5X0X_SINGLE
-	bool "Disable MULTI-Touch Mode"
-	depends on TOUCHSCREEN_FT5X0X
-	default n
-	help
-	  Say Y here to disable multi-touch mode for Ubuntu.
+#config TOUCHSCREEN_FT5X0X
+#	tristate "FocalTech ft5x0x TouchScreen driver"
+#	depends on MACH_TINY4412
+#	help
+#	  Say Y here to support FocalTech ft5x0x TouchScreen on
+#	  FriendlyARM Tiny4412 development board.
+#
+#	  If unsure, say N.
+#
+#	  To compile this driver as a module, choose M here: the
+#	  module will be called ft5x06_ts.ko.
+#
+#config TOUCHSCREEN_FT5X0X_SINGLE
+#	bool "Disable MULTI-Touch Mode"
+#	depends on TOUCHSCREEN_FT5X0X
+#	default n
+#	help
+#	  Say Y here to disable multi-touch mode for Ubuntu.
 
 config TOUCHSCREEN_GUNZE
 	tristate "Gunze AHL-51S touchscreen"

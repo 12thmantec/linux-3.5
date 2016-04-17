@@ -1,0 +1,59 @@
+menu "totops customized drivers"
+
+config TOUCHSCREEN_FT5X0X
+	tristate "touchscreen driver ft5x0x"
+	default y
+	---help---
+	  Say Y here to enable the driver for the touchscreen on the S3C SMDK board.
+
+
+config TOTOPS_GSENEOR_MMA7660
+	tristate "TOTOPS 3-Axis G sensor"
+	default y
+	---help---
+	  Say Y here if you want to support TOTOPS 3-Axis G sensor.
+
+choice
+depends on TOTOPS_GSENEOR_MMA7660
+prompt "Select direction(board)"
+default MMA7660_UT7GM
+
+config MMA7660_UT7GM
+	bool "UT7GM direction"
+	---help---
+	  select the sensor direction for UT7GM
+
+config MMA7660_UT10GM
+	bool "UT10GM direction"
+	---help---
+	  select the sensor direction for UT10GM
+
+config MMA7660_DEFAULT
+	bool "default direction"
+	---help---
+	  select the sensor direction for default
+
+endchoice	
+
+config TOTOPS_RFID
+    tristate "TOTOPS RFID Driver"
+    default y
+    ---help---
+      Say Y here to enable the driver for RFID on TOTOPS SMDK board.
+
+config SENSORS_MMA865X
+    tristate "MMA8652/MMA8653 device driver"
+    depends on I2C
+    default y
+    ---help---
+        If you say yes here you get support for the Freescale MMA8652/MMA8653 sensors.
+
+config SENSORS_MMA_POSITION
+    int "MMA845x or MMA7660 Accelerate Sensor Position Setting"
+    depends on SENSORS_MMA845X || SENSORS_MMA865X || SENSORS_MMA7660
+    default "0"
+    ---help---
+        this provide the sensor position setting , value is between 0~7
+
+
+endmenu
