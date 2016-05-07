@@ -1666,7 +1666,7 @@ static void __init smdk4x12_machine_init(void)
         gpio_free(EXYNOS4_GPX0(6));
 }
 
-MACHINE_START(SMDK4412, "TINY4412")
+MACHINE_START(SMDK4412, "SMDK4X12")
 	/* Maintainer: FriendlyARM (www.arm9.net) */
 	/* Maintainer: Kukjin Kim <kgene.kim@samsung.com> */
 	/* Maintainer: Changhwan Youn <chaos.youn@samsung.com> */
