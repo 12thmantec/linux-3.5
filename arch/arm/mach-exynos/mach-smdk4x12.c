@@ -1,5 +1,4 @@
-/*
- * linux/arch/arm/mach-exynos4/mach-smdk4x12.c
+/* linux/arch/arm/mach-exynos/mach-smdk4x12.c
  *
  * Copyright (c) 2011 Samsung Electronics Co., Ltd.
  *		http://www.samsung.com
@@ -9,85 +8,79 @@
  * published by the Free Software Foundation.
 */
 
-#include <linux/gpio.h>
-#include <linux/i2c.h>
-#include <linux/input.h>
-#include <linux/io.h>
-#include <linux/lcd.h>
-#include <linux/mfd/max8997.h>
-#include <linux/mfd/max77686.h>
-#include <linux/mmc/host.h>
 #include <linux/platform_device.h>
-#include <linux/pwm_backlight.h>
-#include <linux/regulator/machine.h>
-#include <linux/regulator/fixed.h>
-#include <linux/mfd/wm8994/pdata.h>
 #include <linux/serial_core.h>
-#include <linux/lcd.h>
-#include <linux/delay.h>
 #include <linux/spi/spi.h>
 #include <linux/spi/spi_gpio.h>
-#include <linux/input/pixcir_ts.h>
-#include <linux/gpio_event.h>
-#include <linux/platform_data/s3c-hsotg.h>
-#include <linux/platform_data/exynos_thermal.h>
-#include <linux/mfd/s5m87xx/s5m-pmic.h>
-#include <linux/mfd/s5m87xx/s5m-core.h>
-
+#include <linux/clk.h>
+#include <linux/lcd.h>
+#include <linux/gpio.h>
+#include <linux/gpio_keys.h>
+#include <linux/i2c.h>
+#include <linux/i2c-gpio.h>
+#include <linux/pwm_backlight.h>
+#include <linux/input.h>
+#include <linux/mmc/host.h>
+#include <linux/regulator/machine.h>
+#include <linux/regulator/max8649.h>
+#include <linux/regulator/fixed.h>
+#include <linux/mfd/wm8994/pdata.h>
+#include <linux/mfd/max8997.h>
+#include <linux/mfd/max77686.h>
+#include <linux/v4l2-mediabus.h>
+#include <linux/memblock.h>
+#include <linux/delay.h>
+#include <linux/smsc911x.h>
+#include <linux/notifier.h>
+#include <linux/reboot.h>
+#include <linux/axp229.h>
 #include <asm/mach/arch.h>
 #include <asm/hardware/gic.h>
 #include <asm/mach-types.h>
-
-#include <plat/backlight.h>
-#include <plat/clock.h>
-#include <plat/cpu.h>
-#include <plat/devs.h>
-#include <plat/gpio-cfg.h>
-#include <plat/adc.h>
-#include <plat/adc-core.h>
-#include <plat/iic.h>
-#include <plat/keypad.h>
-#include <plat/mfc.h>
+#include <linux/switch.h>
 #include <plat/regs-serial.h>
-#include <plat/sdhci.h>
-#include <plat/regs-fb-v4.h>
+#include <plat/cpu.h>
+#include <plat/clock.h>
+#include <plat/keypad.h>
+#include <plat/devs.h>
 #include <plat/fb.h>
-#include <plat/pm.h>
-#include <plat/hdmi.h>
+#include <plat/fb-core.h>
+#include <plat/regs-fb-v4.h>
+#include <plat/backlight.h>
+#include <plat/gpio-cfg.h>
+#include <plat/regs-adc.h>
+#include <plat/adc.h>
+#include <plat/iic.h>
+#include <plat/sdhci.h>
 #include <plat/ehci.h>
-#include <plat/camport.h>
-#include <plat/s3c64xx-spi.h>
-#include <plat/fimg2d.h>
-
-#ifdef CONFIG_EXYNOS4_DEV_DWMCI
-#include <mach/dwmci.h>
-#endif
-
+#include <media/s5p_fimc.h>
+#include <plat/mipi_csis.h>
+#include <plat/regs-srom.h>
+#include <plat/sysmmu.h>
+#include <plat/tv-core.h>
+#include <plat/mfc.h>
+#include <media/exynos_flite.h>
+#include <media/exynos_fimc_is.h>
+#include <video/platform_lcd.h>
 #include <mach/map.h>
 #include <mach/exynos-ion.h>
 #include <mach/regs-pmu.h>
-#include <mach/ohci.h>
-#include <mach/ppmu.h>
+#include <mach/dwmci.h>
 #include <mach/dev.h>
-#include <mach/s3cfb.h>
-#include <mach/board-revision.h>
-
-#include <media/v4l2-mediabus.h>
-#include <media/s5p_fimc.h>
-#include <media/m5mols.h>
-#include <plat/mipi_csis.h>
-#include <plat/camport.h>
-#include <media/exynos_fimc_is.h>
+#include <mach/ppmu.h>
+#include <plat/fimg2d.h>
+#include <linux/mfd/s5m87xx/s5m-core.h>
+#include <linux/mfd/s5m87xx/s5m-pmic.h>
+#include <linux/cma.h>
 #include "common.h"
-#include <media/exynos_flite.h>
-#include <linux/axp229.h>
-#ifdef CONFIG_VIDEO_UTCAMERA
+#include <mach/ohci.h>
+
+#define GPIO_HUB_RESET EXYNOS4X12_GPM3(2)
+#define GPIO_HUB_CONNECT EXYNOS4_GPX0(2)
+#define GPIO_HUB_INT EXYNOS4_GPX2(3)
 #include <media/ut2055_platform.h>
-#endif
-#ifdef CONFIG_SENSORS_MMC328xMA_MAG
-#include <linux/mmc328x.h>
-#endif
-#include <linux/switch.h>
+#define REG_INFORM4            (S5P_INFORM4)
+
 /* Following are default values for UCON, ULCON and UFCON UART registers */
 #define SMDK4X12_UCON_DEFAULT	(S3C2410_UCON_TXILEVEL |	\
 				 S3C2410_UCON_RXILEVEL |	\
@@ -101,9 +94,6 @@
 #define SMDK4X12_UFCON_DEFAULT	(S3C2410_UFCON_FIFOMODE |	\
 				 S5PV210_UFCON_TXTRIG4 |	\
 				 S5PV210_UFCON_RXTRIG4)
-
-
-static struct max77686_regulator_data max77686_regulators[MAX77686_REG_MAX];
 
 static struct s3c2410_uartcfg smdk4x12_uartcfgs[] __initdata = {
 	[0] = {
@@ -135,881 +125,6 @@ static struct s3c2410_uartcfg smdk4x12_uartcfgs[] __initdata = {
 		.ufcon		= SMDK4X12_UFCON_DEFAULT,
 	},
 };
-
-static struct s3c_sdhci_platdata smdk4x12_hsmmc2_pdata __initdata = {
-	.cd_type		= S3C_SDHCI_CD_INTERNAL,
-};
-
-static struct s3c_sdhci_platdata smdk4x12_hsmmc3_pdata __initdata = {
-	.cd_type		= S3C_SDHCI_CD_PERMANENT,
-};
-
-static struct regulator_consumer_supply max8997_buck1 =
-	REGULATOR_SUPPLY("vdd_arm", NULL);
-
-static struct regulator_consumer_supply max8997_buck2 =
-	REGULATOR_SUPPLY("vdd_int", NULL);
-
-static struct regulator_consumer_supply max8997_buck3 =
-	REGULATOR_SUPPLY("vdd_g3d", NULL);
-
-static struct regulator_init_data max8997_buck1_data = {
-	.constraints	= {
-		.name		= "VDD_ARM_SMDK4X12",
-		.min_uV		= 925000,
-		.max_uV		= 1350000,
-		.always_on	= 1,
-		.valid_ops_mask	= REGULATOR_CHANGE_VOLTAGE,
-		.state_mem	= {
-			.disabled	= 1,
-		},
-	},
-	.num_consumer_supplies	= 1,
-	.consumer_supplies	= &max8997_buck1,
-};
-
-static struct regulator_init_data max8997_buck2_data = {
-	.constraints	= {
-		.name		= "VDD_INT_SMDK4X12",
-		.min_uV		= 950000,
-		.max_uV		= 1150000,
-		.always_on	= 1,
-		.valid_ops_mask	= REGULATOR_CHANGE_VOLTAGE,
-		.state_mem	= {
-			.disabled	= 1,
-		},
-	},
-	.num_consumer_supplies	= 1,
-	.consumer_supplies	= &max8997_buck2,
-};
-
-static struct regulator_init_data max8997_buck3_data = {
-	.constraints	= {
-		.name		= "VDD_G3D_SMDK4X12",
-		.min_uV		= 950000,
-		.max_uV		= 1150000,
-		.valid_ops_mask	= REGULATOR_CHANGE_VOLTAGE |
-				  REGULATOR_CHANGE_STATUS,
-		.state_mem	= {
-			.disabled	= 1,
-		},
-	},
-	.num_consumer_supplies	= 1,
-	.consumer_supplies	= &max8997_buck3,
-};
-
-static struct max8997_regulator_data smdk4x12_max8997_regulators[] = {
-	{ MAX8997_BUCK1, &max8997_buck1_data },
-	{ MAX8997_BUCK2, &max8997_buck2_data },
-	{ MAX8997_BUCK3, &max8997_buck3_data },
-};
-
-static struct max8997_platform_data smdk4x12_max8997_pdata = {
-	.num_regulators	= ARRAY_SIZE(smdk4x12_max8997_regulators),
-	.regulators	= smdk4x12_max8997_regulators,
-
-	.buck1_voltage[0] = 1100000,	/* 1.1V */
-	.buck1_voltage[1] = 1100000,	/* 1.1V */
-	.buck1_voltage[2] = 1100000,	/* 1.1V */
-	.buck1_voltage[3] = 1100000,	/* 1.1V */
-	.buck1_voltage[4] = 1100000,	/* 1.1V */
-	.buck1_voltage[5] = 1100000,	/* 1.1V */
-	.buck1_voltage[6] = 1000000,	/* 1.0V */
-	.buck1_voltage[7] = 950000,	/* 0.95V */
-
-	.buck2_voltage[0] = 1100000,	/* 1.1V */
-	.buck2_voltage[1] = 1000000,	/* 1.0V */
-	.buck2_voltage[2] = 950000,	/* 0.95V */
-	.buck2_voltage[3] = 900000,	/* 0.9V */
-	.buck2_voltage[4] = 1100000,	/* 1.1V */
-	.buck2_voltage[5] = 1000000,	/* 1.0V */
-	.buck2_voltage[6] = 950000,	/* 0.95V */
-	.buck2_voltage[7] = 900000,	/* 0.9V */
-
-	.buck5_voltage[0] = 1100000,	/* 1.1V */
-	.buck5_voltage[1] = 1100000,	/* 1.1V */
-	.buck5_voltage[2] = 1100000,	/* 1.1V */
-	.buck5_voltage[3] = 1100000,	/* 1.1V */
-	.buck5_voltage[4] = 1100000,	/* 1.1V */
-	.buck5_voltage[5] = 1100000,	/* 1.1V */
-	.buck5_voltage[6] = 1100000,	/* 1.1V */
-	.buck5_voltage[7] = 1100000,	/* 1.1V */
-};
-#ifdef CONFIG_REGULATOR_MAX77686
-static struct regulator_consumer_supply max77686_buck1 =
-REGULATOR_SUPPLY("vdd_mif", NULL);
-
-static struct regulator_consumer_supply max77686_buck2 =
-REGULATOR_SUPPLY("vdd_arm", NULL);
-
-static struct regulator_consumer_supply max77686_buck3 =
-REGULATOR_SUPPLY("vdd_int", NULL);
-
-static struct regulator_consumer_supply max77686_buck4 =
-REGULATOR_SUPPLY("vdd_g3d", NULL);
-
-static struct regulator_consumer_supply max77686_ldo11_consumer =
-REGULATOR_SUPPLY("vdd_ldo11", NULL);
-
-static struct regulator_consumer_supply max77686_ldo14_consumer =
-REGULATOR_SUPPLY("vdd_ldo14", NULL);
-
-static struct regulator_consumer_supply max77686_ldo12_consumer =
-REGULATOR_SUPPLY("vusb_a", NULL);
-
-static struct regulator_consumer_supply max77686_ldo15_consumer =
-REGULATOR_SUPPLY("vusb_d", NULL);
-
-static struct regulator_consumer_supply max77686_ldo16_consumer =
-REGULATOR_SUPPLY("vdd_hsic", NULL);
-
-static struct regulator_consumer_supply max77686_ldo8_consumer[] = {
-REGULATOR_SUPPLY("vdd", "exynos4-hdmi"),
-REGULATOR_SUPPLY("vdd_pll", "exynos4-hdmi"),
-REGULATOR_SUPPLY("vdd8_mipi", NULL),
-};
-
-static struct regulator_consumer_supply max77686_ldo10_consumer[] = {
-REGULATOR_SUPPLY("vdd_osc", "exynos4-hdmi"),
-REGULATOR_SUPPLY("vdd10_mipi", NULL),
-REGULATOR_SUPPLY("vdd_tmu", NULL),
-};
-
-static struct regulator_init_data max77686_ldo8_data = {
-	.constraints = {
-		.name		= "vdd_ldo8 range",
-		.min_uV		= 1000000,
-		.max_uV		= 1000000,
-		.boot_on	= 1,
-		.valid_ops_mask = REGULATOR_CHANGE_STATUS,
-		.state_mem	= {
-			.disabled	= 1,
-			.mode		= REGULATOR_MODE_STANDBY,
-		},
-		.initial_state = PM_SUSPEND_MEM, 
-	},
-	.num_consumer_supplies	= ARRAY_SIZE(max77686_ldo8_consumer),
-	.consumer_supplies	= max77686_ldo8_consumer,
-};
-
-static struct regulator_init_data max77686_ldo10_data = {
-	.constraints = {
-		.name		= "vdd_ldo10 range",
-		.min_uV		= 1800000,
-		.max_uV		= 1800000,
-		.boot_on	= 1,
-		.valid_ops_mask = REGULATOR_CHANGE_STATUS,
-		.state_mem	= {
-			.disabled	= 1,
-			.mode		= REGULATOR_MODE_STANDBY,
-		},
-		.initial_state = PM_SUSPEND_MEM, 
-	},
-	.num_consumer_supplies	= ARRAY_SIZE(max77686_ldo10_consumer),
-	.consumer_supplies	= max77686_ldo10_consumer,
-};
-
-static struct regulator_init_data max77686_ldo12_data = {
-	.constraints = {
-		.name		= "vdd_ldo12 range",
-		.min_uV		= 3000000,
-		.max_uV		= 3300000,
-		.boot_on	= 1,
-		.valid_ops_mask = REGULATOR_CHANGE_STATUS,
-		.always_on	= 1,
-		.state_mem	= {
-			.disabled	= 1,
-			.mode		= REGULATOR_MODE_STANDBY,
-		},
-		.initial_state = PM_SUSPEND_MEM, 
-	},
-	.num_consumer_supplies	= 1,
-	.consumer_supplies	= &max77686_ldo12_consumer,
-};
-
-static struct regulator_init_data max77686_ldo15_data = {
-	.constraints = {
-		.name		= "vdd_ldo15 range",
-		.min_uV		= 1000000,
-		.max_uV		= 1000000,
-		.boot_on	= 1,
-		.valid_ops_mask = REGULATOR_CHANGE_STATUS,
-		.always_on	= 1,
-		.state_mem	= {
-			.disabled	= 1,
-			.mode		= REGULATOR_MODE_STANDBY,
-		},
-		.initial_state = PM_SUSPEND_MEM, 
-	},
-	.num_consumer_supplies	= 1,
-	.consumer_supplies	= &max77686_ldo15_consumer,
-};
-
-static struct regulator_init_data max77686_ldo16_data = {
-	.constraints = {
-		.name		= "vdd_ldo16 range",
-		.min_uV		= 1800000,
-		.max_uV		= 1800000,
-		.boot_on	= 1,
-		.valid_ops_mask = REGULATOR_CHANGE_STATUS,
-		.always_on	= 1,
-		.state_mem	= {
-			.disabled	= 1,
-			.mode		= REGULATOR_MODE_STANDBY,
-		},
-		.initial_state = PM_SUSPEND_MEM, 
-	},
-	.num_consumer_supplies	= 1,
-	.consumer_supplies	= &max77686_ldo16_consumer,
-};
-
-static struct regulator_init_data max77686_buck1_data = {
-	.constraints = {
-		.name		= "vdd_mif range",
-		.min_uV		= 800000,
-		.max_uV		= 1300000,
-		.always_on	= 1,
-		.boot_on	= 1,
-		.valid_ops_mask = REGULATOR_CHANGE_VOLTAGE |
-				  REGULATOR_CHANGE_STATUS,
-		.state_mem	= {
-			.disabled	= 1,
-			.mode		= REGULATOR_MODE_STANDBY,
-		},
-		.initial_state = PM_SUSPEND_MEM, 
-	},
-	.num_consumer_supplies = 1,
-	.consumer_supplies = &max77686_buck1,
-};
-
-static struct regulator_init_data max77686_buck2_data = {
-	.constraints = {
-		.name		= "vdd_arm range",
-		.min_uV		= 800000,
-		.max_uV		= 1350000,
-		.always_on	= 1,
-		.boot_on	= 1,
-		.valid_ops_mask = REGULATOR_CHANGE_VOLTAGE |
-				  REGULATOR_CHANGE_STATUS,
-		.state_mem	= {
-			.disabled	= 1,
-			.mode		= REGULATOR_MODE_STANDBY,
-		},
-		.initial_state = PM_SUSPEND_MEM, 
-	},
-	.num_consumer_supplies 	= 1,
-	.consumer_supplies	= &max77686_buck2,
-};
-
-static struct regulator_init_data max77686_buck3_data = {
-	.constraints = {
-		.name		= "vdd_int range",
-		.min_uV		= 800000,
-		.max_uV		= 1150000,
-		.always_on	= 1,
-		.boot_on	= 1,
-		.valid_ops_mask = REGULATOR_CHANGE_VOLTAGE |
-				  REGULATOR_CHANGE_STATUS,
-		.state_mem	= {
-			.disabled	= 1,
-			.mode		= REGULATOR_MODE_STANDBY,
-		},
-		.initial_state = PM_SUSPEND_MEM, 
-	},
-	.num_consumer_supplies = 1,
-	.consumer_supplies = &max77686_buck3,
-};
-
-static struct regulator_init_data max77686_buck4_data = {
-	.constraints = {
-		.name		= "vdd_g3d range",
-		.min_uV		= 850000,
-		.max_uV		= 1200000,
-		.boot_on	= 1,
-		.always_on	= 1,
-		.valid_ops_mask = REGULATOR_CHANGE_VOLTAGE |
-				  REGULATOR_CHANGE_STATUS,
-		.state_mem	= {
-			.disabled	= 1,
-			.mode		= REGULATOR_MODE_STANDBY,
-		},
-		.initial_state = PM_SUSPEND_MEM, 
-	},
-	.num_consumer_supplies = 1,
-	.consumer_supplies = &max77686_buck4,
-};
-
-static struct regulator_init_data __initdata max77686_ldo11_data = {
-	.constraints	= {
-		.name		= "vdd_ldo11 range",
-		.min_uV		= 1900000,
-		.max_uV		= 1900000,
-		.apply_uV	= 1,
-		.state_mem	= {
-			.disabled	= 1,
-			.mode		= REGULATOR_MODE_STANDBY,
-		},
-	},
-	.num_consumer_supplies	= 1,
-	.consumer_supplies	= &max77686_ldo11_consumer,
-};
-
-static struct regulator_init_data __initdata max77686_ldo14_data = {
-	.constraints	= {
-		.name		= "vdd_ldo14 range",
-		.min_uV		= 1900000,
-		.max_uV		= 1900000,
-		.apply_uV	= 1,
-		.always_on	= 1,
-		.state_mem	= {
-			.disabled	= 1,
-			.mode		= REGULATOR_MODE_STANDBY,
-		},
-	},
-	.num_consumer_supplies	= 1,
-	.consumer_supplies	= &max77686_ldo14_consumer,
-};
-
-static struct regulator_init_data __initdata max77686_always_on = {
-	.constraints = {
-		.always_on 	= 1,
-		.state_mem 	= {
-			.disabled	= 1,
-			.mode		= REGULATOR_MODE_STANDBY,
-		},
-	},
-};
-
-static void max77686_populate_pdata (void)
-{
-	int i;
-
-	/* LDOs[0-7] and BUCKs[5-7] are not initialized yet but required to
-	 * be always enabled for stability */
-	for (i = 0; i <= MAX77686_LDO7; i++)
-		max77686_regulators[i].initdata = &max77686_always_on;
-	max77686_regulators[MAX77686_BUCK5].initdata = &max77686_always_on;
-	max77686_regulators[MAX77686_BUCK6].initdata = &max77686_always_on;
-	max77686_regulators[MAX77686_BUCK7].initdata = &max77686_always_on;
-
-	max77686_regulators[MAX77686_BUCK1].initdata = &max77686_buck1_data;
-	max77686_regulators[MAX77686_BUCK2].initdata = &max77686_buck2_data;
-	max77686_regulators[MAX77686_BUCK3].initdata = &max77686_buck3_data;
-	max77686_regulators[MAX77686_BUCK4].initdata = &max77686_buck4_data;
-	max77686_regulators[MAX77686_LDO8].initdata  = &max77686_ldo8_data;
-	max77686_regulators[MAX77686_LDO10].initdata = &max77686_ldo10_data;
-	max77686_regulators[MAX77686_LDO11].initdata = &max77686_ldo11_data;
-	max77686_regulators[MAX77686_LDO12].initdata = &max77686_ldo12_data;
-	max77686_regulators[MAX77686_LDO14].initdata = &max77686_ldo14_data;
-	max77686_regulators[MAX77686_LDO15].initdata = &max77686_ldo15_data;
-	max77686_regulators[MAX77686_LDO16].initdata = &max77686_ldo16_data;
-
-	regulator_has_full_constraints();
-}
-
-static struct max77686_platform_data smdk4412_max77686_pdata = {
-	.num_regulators = ARRAY_SIZE(max77686_regulators),
-	.regulators = max77686_regulators,
-};
-#endif
-#ifdef CONFIG_REGULATOR_S5M8767
-/* S5M8767 Regulator */
-static int s5m_cfg_irq(void)
-{
-        /* AP_PMIC_IRQ: EINT26 */
-	s3c_gpio_cfgpin(EXYNOS4_GPX3(2), S3C_GPIO_SFN(0xF));
-	s3c_gpio_setpull(EXYNOS4_GPX3(2), S3C_GPIO_PULL_UP);
-        return 0;
-}
-static struct regulator_consumer_supply s5m8767_buck1_consumer =
-REGULATOR_SUPPLY("vdd_mif", NULL);
-
-static struct regulator_consumer_supply s5m8767_buck2_consumer =
-REGULATOR_SUPPLY("vdd_arm", NULL);
-
-static struct regulator_consumer_supply s5m8767_buck3_consumer =
-REGULATOR_SUPPLY("vdd_int", NULL);
-
-static struct regulator_consumer_supply s5m8767_buck4_consumer =
-REGULATOR_SUPPLY("vdd_g3d", NULL);
-
-static struct regulator_consumer_supply s5m8767_ldo11_consumer =
-REGULATOR_SUPPLY("vdd_ldo11", NULL);
-
-static struct regulator_consumer_supply s5m8767_ldo14_consumer =
-REGULATOR_SUPPLY("vdd_ldo14", NULL);
-
-static struct regulator_consumer_supply s5m8767_ldo12_consumer =
-REGULATOR_SUPPLY("vusb_a", NULL);
-
-static struct regulator_consumer_supply s5m8767_ldo15_consumer =
-REGULATOR_SUPPLY("vusb_d", NULL);
-
-static struct regulator_consumer_supply s5m8767_ldo16_consumer =
-REGULATOR_SUPPLY("vdd_hsic", NULL);
-
-static struct regulator_consumer_supply s5m8767_ldo8_consumer[] = {
-REGULATOR_SUPPLY("vdd", "exynos4-hdmi"),
-REGULATOR_SUPPLY("vdd_pll", "exynos4-hdmi"),
-REGULATOR_SUPPLY("vdd8_mipi", NULL),
-};
-static struct regulator_consumer_supply s5m8767_ldo10_consumer[] = {
-REGULATOR_SUPPLY("vdd_osc", "exynos4-hdmi"),
-REGULATOR_SUPPLY("vdd10_mipi", NULL),
-REGULATOR_SUPPLY("vdd_tmu", NULL),
-};
-
-static struct regulator_init_data s5m8767_ldo8_data = {
-	.constraints	={
-		.name		= "vdd_ldo8 range",
-		.min_uV		= 1000000,
-		.max_uV         = 1000000,
-		.boot_on        = 1,
-		.always_on      = 1,
-		.valid_ops_mask = REGULATOR_CHANGE_STATUS,
-		.state_mem      = {
-			.disabled       = 1,
-			.mode  	        = REGULATOR_MODE_STANDBY,
-		},
-		.initial_state = PM_SUSPEND_MEM,
-	},
-	.num_consumer_supplies  = ARRAY_SIZE(s5m8767_ldo8_consumer),
-	.consumer_supplies      = s5m8767_ldo8_consumer,
-};
-
-static struct regulator_init_data s5m8767_ldo10_data = {
-	.constraints = {
-		.name           = "vdd_ldo10 range",
-		.min_uV         = 1800000,
-		.max_uV         = 1800000,
-		.boot_on        = 1,
-		.valid_ops_mask = REGULATOR_CHANGE_STATUS,
-		.state_mem      = {
-			.disabled       = 1,
-			.mode           = REGULATOR_MODE_STANDBY,
-		},
-		.initial_state = PM_SUSPEND_MEM,
-	},
-	.num_consumer_supplies  = ARRAY_SIZE(s5m8767_ldo10_consumer),
-	.consumer_supplies      = s5m8767_ldo10_consumer,
-};
-
-static struct regulator_init_data s5m8767_ldo12_data = {
-	.constraints = {
-		.name           = "vdd_ldo12 range",
-		.min_uV         = 3000000,
-		.max_uV         = 3000000,
-		.boot_on        = 1,
-		.valid_ops_mask = REGULATOR_CHANGE_STATUS | REGULATOR_CHANGE_VOLTAGE,
-		.always_on      = 1,
-		.state_mem      = {
-			.disabled       = 1,
-			.mode           = REGULATOR_MODE_STANDBY,
-		},
-	.initial_state = PM_SUSPEND_MEM,
-	},
-	.num_consumer_supplies  = 1,
-	.consumer_supplies      = &s5m8767_ldo12_consumer,
-};
-
-static struct regulator_init_data s5m8767_ldo15_data = {
-	.constraints = {
-		.name           = "vdd_ldo15 range",
-		.min_uV         = 1000000,
-		.max_uV         = 1000000,
-		.boot_on        = 1,
-		.valid_ops_mask = REGULATOR_CHANGE_STATUS,
-		.always_on      = 1,
-		.state_mem      = {
-			.disabled       = 1,
-			.mode           = REGULATOR_MODE_STANDBY,
-		},
-		.initial_state = PM_SUSPEND_MEM,
-	},
-	.num_consumer_supplies  = 1,
-	.consumer_supplies      = &s5m8767_ldo15_consumer,
-};
-
-static struct regulator_init_data s5m8767_ldo16_data = {
-	.constraints = {
-		.name           = "vdd_ldo16 range",
-		.min_uV         = 1800000,
-		.max_uV         = 1800000,
-		.boot_on        = 1,
-		.valid_ops_mask = REGULATOR_CHANGE_STATUS,
-		.always_on      = 1,
-		.state_mem      = {
-			.disabled       = 1,
-			.mode           = REGULATOR_MODE_STANDBY,
-		},
-		.initial_state = PM_SUSPEND_MEM,
-	},
-	.num_consumer_supplies  = 1,
-	.consumer_supplies      = &s5m8767_ldo16_consumer,
-};
-
-static struct regulator_init_data __initdata s5m8767_ldo11_data = {
-	.constraints    = {
-		.name           = "vdd_ldo11 range",
-		.min_uV         = 1800000,
-		.max_uV         = 1800000,
-		.always_on      = 1,
-		.apply_uV       = 1,
-		.state_mem      = {
-			.disabled       = 1,
-			.mode           = REGULATOR_MODE_STANDBY,
-		},
-	},
-	.num_consumer_supplies  = 1,
-	.consumer_supplies      = &s5m8767_ldo11_consumer,
-};
-
-static struct regulator_init_data __initdata s5m8767_ldo14_data = {
-	.constraints    = {
-		.name           = "vdd_ldo14 range",
-		.min_uV         = 1800000,
-		.max_uV         = 1800000,
-		.apply_uV       = 1,
-		.always_on      = 1,
-		.state_mem      = {
-			.disabled       = 1,
-			.mode           = REGULATOR_MODE_STANDBY,
-		},
-	},
-	.num_consumer_supplies  = 1,
-	.consumer_supplies      = &s5m8767_ldo14_consumer,
-};
-
-static struct regulator_init_data s5m8767_buck1_data = {
-	.constraints    = {
-		.name           = "vdd_mif range",
-		.min_uV         = 800000,
-		.max_uV         = 1100000,
-		.valid_ops_mask = REGULATOR_CHANGE_VOLTAGE |
-			REGULATOR_CHANGE_STATUS,
-		.always_on = 1,
-		.boot_on = 1,
-		.state_mem      = {
-			.disabled       = 1,
-		},
-	},
-	.num_consumer_supplies  = 1,
-	.consumer_supplies      = &s5m8767_buck1_consumer,
-};
-
-static struct regulator_init_data s5m8767_buck2_data = {
-	.constraints    = {
-		.name           = "vdd_arm range",
-		.min_uV         =  800000,
-		.max_uV         = 1350000,
-		.valid_ops_mask = REGULATOR_CHANGE_VOLTAGE |
-			REGULATOR_CHANGE_STATUS,
-		.always_on = 1,
-		.boot_on = 1,
-		.state_mem      = {
-				.disabled       = 1,
-		},
-	},
-	.num_consumer_supplies  = 1,
-	.consumer_supplies      = &s5m8767_buck2_consumer,
-};
-
-static struct regulator_init_data s5m8767_buck3_data = {
-	.constraints    = {
-		.name           = "vdd_int range",
-		.min_uV         =  800000,
-		.max_uV         = 1150000,
-		.apply_uV       = 1,
-		.valid_ops_mask = REGULATOR_CHANGE_VOLTAGE |
-				REGULATOR_CHANGE_STATUS,
-		.always_on = 1,
-		.boot_on = 1,
-		.state_mem      = {
-			.uV             = 1100000,
-			.mode           = REGULATOR_MODE_NORMAL,
-			.disabled       = 1,
-		},
-	},
-	.num_consumer_supplies  = 1,
-	.consumer_supplies      = &s5m8767_buck3_consumer,
-};
-static struct regulator_init_data s5m8767_buck4_data = {
-	.constraints    = {
-		.name           = "vdd_g3d range",
-		.min_uV         = 850000,
-		.max_uV         = 1200000,
-		.valid_ops_mask = REGULATOR_CHANGE_VOLTAGE |
-				REGULATOR_CHANGE_STATUS,
-		.always_on = 1,
-		.boot_on = 1,
-		.state_mem      = {
-			.disabled       = 1,
-			},
-		},
-	.num_consumer_supplies = 1,
-	.consumer_supplies = &s5m8767_buck4_consumer,
-};
-
-static struct s5m_regulator_data pegasus_regulators[] = {
-	{ S5M8767_LDO8,  &s5m8767_ldo8_data},
-	{ S5M8767_LDO10, &s5m8767_ldo10_data},
-	{ S5M8767_LDO11, &s5m8767_ldo11_data},
-	{ S5M8767_LDO12, &s5m8767_ldo12_data},
-	{ S5M8767_LDO14, &s5m8767_ldo14_data},
-	{ S5M8767_LDO15, &s5m8767_ldo15_data},
-	{ S5M8767_LDO16, &s5m8767_ldo16_data},
-	{ S5M8767_BUCK1, &s5m8767_buck1_data },
-	{ S5M8767_BUCK2, &s5m8767_buck2_data },
-	{ S5M8767_BUCK3, &s5m8767_buck3_data },
-	{ S5M8767_BUCK4, &s5m8767_buck4_data },
-};
-
-struct s5m_opmode_data s5m8767_opmode_data[S5M8767_REG_MAX] = {
-	[S5M8767_BUCK1] = {S5M8767_BUCK1, S5M_OPMODE_SUSPEND},
-	[S5M8767_BUCK2] = {S5M8767_BUCK2, S5M_OPMODE_SUSPEND},
-	[S5M8767_BUCK3] = {S5M8767_BUCK3, S5M_OPMODE_SUSPEND},
-	[S5M8767_BUCK4] = {S5M8767_BUCK4, S5M_OPMODE_SUSPEND},
-	[S5M8767_LDO8]  = {S5M8767_LDO8,  S5M_OPMODE_SUSPEND},
-	[S5M8767_LDO10] = {S5M8767_LDO10, S5M_OPMODE_SUSPEND},
-	[S5M8767_LDO11] = {S5M8767_LDO11, S5M_OPMODE_SUSPEND},
-	[S5M8767_LDO12] = {S5M8767_LDO12, S5M_OPMODE_SUSPEND},
-	[S5M8767_LDO14] = {S5M8767_LDO14, S5M_OPMODE_SUSPEND},
-	[S5M8767_LDO15] = {S5M8767_LDO15, S5M_OPMODE_SUSPEND},
-	[S5M8767_LDO16] = {S5M8767_LDO16, S5M_OPMODE_SUSPEND},
-};
-
-static struct s5m_platform_data exynos4_s5m8767_pdata = {
-	.device_type            = S5M8767X,
-	.irq_base               = IRQ_BOARD_START,
-	.num_regulators         = ARRAY_SIZE(pegasus_regulators),
-	.regulators             = pegasus_regulators,
-	.cfg_pmic_irq           = s5m_cfg_irq,
-	.wakeup                 = 1,
-	.opmode            = s5m8767_opmode_data,
-	//        .wtsr_smpl              = 1,
-
-	.buck_default_idx       = 1,
-	.buck_gpios[0]          = EXYNOS4_GPL0(3),
-	.buck_gpios[1]          = EXYNOS4_GPL0(4),
-	.buck_gpios[2]          = EXYNOS4_GPL0(6),
-
-	.buck_ramp_delay        = 25,
-	.buck2_ramp_enable      = true,
-	.buck3_ramp_enable      = true,
-	.buck4_ramp_enable      = true,
-#if 0
-	.buck_ds[0]             = EXYNOS4_GPL0(0),
-	.buck_ds[1]             = EXYNOS4_GPL0(1),
-	.buck_ds[2]             = EXYNOS4_GPL0(2),
-	.buck2_init             = 1100000,
-	.buck3_init             = 1000000,
-	.buck4_init             = 1000000,
-#endif
-};
-/* End of S5M8767 */
-#endif
-
-static struct regulator_consumer_supply wm8994_fixed_voltage0_supplies[] = {
-        REGULATOR_SUPPLY("AVDD2", "1-001a"),
-        REGULATOR_SUPPLY("CPVDD", "1-001a"),
-};
-
-static struct regulator_consumer_supply wm8994_fixed_voltage1_supplies[] = {
-        REGULATOR_SUPPLY("SPKVDD1", "1-001a"),
-        REGULATOR_SUPPLY("SPKVDD2", "1-001a"),
-};
-
-static struct regulator_consumer_supply wm8994_fixed_voltage2_supplies =
-        REGULATOR_SUPPLY("DBVDD", "1-001a");
-
-static struct regulator_init_data wm8994_fixed_voltage0_init_data = {
-        .constraints = {
-                .always_on = 1,
-        },
-        .num_consumer_supplies  = ARRAY_SIZE(wm8994_fixed_voltage0_supplies),
-        .consumer_supplies      = wm8994_fixed_voltage0_supplies,
-};
-
-static struct regulator_init_data wm8994_fixed_voltage1_init_data = {
-        .constraints = {
-                .always_on = 1,
-        },
-        .num_consumer_supplies  = ARRAY_SIZE(wm8994_fixed_voltage1_supplies),
-        .consumer_supplies      = wm8994_fixed_voltage1_supplies,
-};
-
-static struct regulator_init_data wm8994_fixed_voltage2_init_data = {
-        .constraints = {
-                .always_on = 1,
-        },
-        .num_consumer_supplies  = 1,
-        .consumer_supplies      = &wm8994_fixed_voltage2_supplies,
-};
-
-static struct fixed_voltage_config wm8994_fixed_voltage0_config = {
-        .supply_name    = "VDD_1.8V",
-        .microvolts     = 1800000,
-        .gpio           = -EINVAL,
-        .init_data      = &wm8994_fixed_voltage0_init_data,
-};
-
-static struct fixed_voltage_config wm8994_fixed_voltage1_config = {
-        .supply_name    = "DC_5V",
-        .microvolts     = 5000000,
-        .gpio           = -EINVAL,
-        .init_data      = &wm8994_fixed_voltage1_init_data,
-};
-
-static struct fixed_voltage_config wm8994_fixed_voltage2_config = {
-        .supply_name    = "VDD_3.3V",
-        .microvolts     = 3300000,
-        .gpio           = -EINVAL,
-        .init_data      = &wm8994_fixed_voltage2_init_data,
-};
-
-static struct platform_device wm8994_fixed_voltage0 = {
-        .name           = "reg-fixed-voltage",
-        .id             = 0,
-        .dev            = {
-                .platform_data  = &wm8994_fixed_voltage0_config,
-        },
-};
-
-static struct platform_device wm8994_fixed_voltage1 = {
-        .name           = "reg-fixed-voltage",
-        .id             = 1,
-        .dev            = {
-                .platform_data  = &wm8994_fixed_voltage1_config,
-        },
-};
-
-static struct platform_device wm8994_fixed_voltage2 = {
-        .name           = "reg-fixed-voltage",
-        .id             = 2,
-        .dev            = {
-                .platform_data  = &wm8994_fixed_voltage2_config,
-        },
-};
-
-static struct regulator_consumer_supply wm8994_avdd1_supply =
-        REGULATOR_SUPPLY("AVDD1", "1-001a");
-
-static struct regulator_consumer_supply wm8994_dcvdd_supply =
-        REGULATOR_SUPPLY("DCVDD", "1-001a");
-
-static struct regulator_init_data wm8994_ldo1_data = {
-        .constraints    = {
-                .name           = "AVDD1",
-        },
-        .num_consumer_supplies  = 1,
-        .consumer_supplies      = &wm8994_avdd1_supply,
-};
-
-static struct regulator_init_data wm8994_ldo2_data = {
-        .constraints    = {
-                .name           = "DCVDD",
-        },
-        .num_consumer_supplies  = 1,
-        .consumer_supplies      = &wm8994_dcvdd_supply,
-};
-
-static struct wm8994_pdata wm8994_platform_data = {
-        /* configure gpio1 function: 0x0001(Logic level input/output) */
-        .gpio_defaults[0] = 0x0001,
-        /* If the i2s0 and i2s2 is enabled simultaneously */
-        .gpio_defaults[7] = 0x8100, /* GPIO8  DACDAT3 in */
-        .gpio_defaults[8] = 0x0100, /* GPIO9  ADCDAT3 out */
-        .gpio_defaults[9] = 0x0100, /* GPIO10 LRCLK3  out */
-        .gpio_defaults[10] = 0x0100,/* GPIO11 BCLK3   out */
-        .ldo[0] = { 0, &wm8994_ldo1_data },
-        .ldo[1] = { 0, &wm8994_ldo2_data },
-};
-
-static struct s3c2410_platform_i2c tiny4412_i2c0_data __initdata = {
-	.flags			= 0,
-	.bus_num		= 0,
-	.slave_addr		= 0x10,
-	.frequency		= 200*1000,
-	.sda_delay		= 100,
-};
-
-#ifdef CONFIG_SND_SOC_WM8960_TINY4412
-#include <sound/wm8960.h>
-static struct wm8960_data wm8960_pdata = {
-	.capless	= 0,
-	.dres		= WM8960_DRES_400R,
-};
-#endif
-
-static struct i2c_board_info smdk4x12_i2c_devs0[] __initdata = {
-#ifdef CONFIG_SND_SOC_WM8960_TINY4412
-	{
-		I2C_BOARD_INFO("wm8960", 0x1a),
-		.platform_data = &wm8960_pdata,
-	},
-#endif
-#if 0
-#ifdef CONFIG_REGULATOR_S5M8767
-	{
-		I2C_BOARD_INFO("s5m87xx", 0xCC >> 1),
-		.platform_data	= &exynos4_s5m8767_pdata,
-		.irq		= IRQ_EINT(26),
-	},
-#endif
-#ifdef CONFIG_REGULATOR_MAX77686
-	{
-		I2C_BOARD_INFO("max77686", (0x12 >> 1)),
-		.platform_data	= &smdk4412_max77686_pdata,
-		.irq		= IRQ_EINT(26),
-	},
-#endif
-#endif
-};
-
-static struct s3c2410_platform_i2c tiny4412_i2c1_data __initdata = {
-	.flags			= 0,
-	.bus_num		= 1,
-	.slave_addr		= 0x10,
-	.frequency		= 200*1000,
-	.sda_delay		= 100,
-};
-
-static struct i2c_board_info smdk4x12_i2c_devs1[] __initdata = {
-#ifdef CONFIG_SND_SOC_SAMSUNG_SMDK_WM8994 
-	{ 
-		I2C_BOARD_INFO("wm8994", 0x1a), 
-	  	.platform_data  = &wm8994_platform_data,
-	}
-#endif
-};
-
-static struct i2c_board_info smdk4x12_i2c_devs2[] __initdata = {
-	/* nothing here yet */
-};
-
-
-static struct s5p_platform_mipi_csis mipi_csis_platdata = {
-};
-#define GPIO_CAM_LEVEL_EN(n)	EXYNOS4_GPX1(2)
-#define GPIO_CAM_8M_ISP_INT	EXYNOS4_GPX3(3)	/* XEINT_27 */
-#define GPIO_CAM_MEGA_nRST	EXYNOS4_GPX1(2) 
-static int m5mols_set_power(struct device *dev, int on)
-{
-	gpio_set_value(EXYNOS4_GPX1(2), !on);
-	gpio_set_value(EXYNOS4_GPX1(2), !!on);
-	return 0;
-}
-static struct m5mols_platform_data m5mols_platdata = {
-	.gpio_reset	= GPIO_CAM_MEGA_nRST,
-	.reset_polarity	= 0,
-	.set_power	= m5mols_set_power,
-};
-static struct i2c_board_info m5mols_board_info = {
-	I2C_BOARD_INFO("M5MOLS", 0x1F),
-	.platform_data = &m5mols_platdata,
-};
-
-#ifdef CONFIG_VIDEO_UTCAMERA
 static int camera_powerctrl(int onoff)
 {
 
@@ -1084,412 +199,35 @@ static struct s3c_platform_camera ut2055 = {
 	.initialized	= 0,
 	.cam_power	= camera_powerctrl,
 };
-#endif
 
 
+/* Interface setting */
 static struct s3c_platform_fimc fimc_plat = {
-#ifdef CONFIG_VIDEO_UTCAMERA
 	.camera		= {	
             &ut2055,
             &ut2055
 	},
-#endif
 	.hw_ver		= 0x51,
 };
 
-static struct s5p_fimc_isp_info smdk4x12_camera_sensors[] = {
-	{
-		.board_info	  = &ut2055_i2c_info,
-		.clk_frequency  = 24000000UL,
-		.bus_type	  = FIMC_ITU_601,
-		.i2c_bus_num	  = 7,
-		.mux_id	  = 0, /* A-Port : 0, B-Port : 1 */
-		.flags		  = V4L2_MBUS_VSYNC_ACTIVE_LOW,
-	},
-};
-static struct s5p_platform_fimc fimc_md_platdata = {
-	.isp_info	= smdk4x12_camera_sensors,
-	.num_clients	= ARRAY_SIZE(smdk4x12_camera_sensors),
-	.fimc_plat	= &fimc_plat,
-};
-
-static struct gpio smdk4x12_camera_gpios[] = {
-	{ GPIO_CAM_8M_ISP_INT,	GPIOF_IN,            "8M_ISP_INT"  },
-	{ GPIO_CAM_MEGA_nRST,	GPIOF_OUT_INIT_LOW,  "CAM_8M_NRST" },
-};
-static void __init smdk4x12_camera_init(void)
+static int exynos4_notifier_call(struct notifier_block *this,
+					unsigned long code, void *_cmd)
 {
-	s3c_set_platdata(&fimc_md_platdata,  sizeof(fimc_md_platdata),
-			 &s5p_device_fimc_md);
+	int mode = 0;
+
+	if ((code == SYS_RESTART) && _cmd)
+		if (!strcmp((char *)_cmd, "recovery"))
+			mode = 0xf;
+
+	__raw_writel(mode, REG_INFORM4);
+
+	return NOTIFY_DONE;
 }
 
-#ifdef CONFIG_MXC_MMA845X
-#include <linux/mma845x.h>
-
-static struct mxc_mma845x_platform_data mma845x_data = {
-	.gpio_pin_get = NULL,
-	.gpio_pin_put = NULL,
-	.int1 = IRQ_EINT(25),	// ACCL_INT1 is gpio for MMA845X INT1
-	.int2 = 0,				// ACCL_INT2 is gpio for MMA845X INT2
-};
-#endif
-
-#ifdef CONFIG_SENSORS_MMA7660
-#include <linux/mma7660.h>
-static struct mma7660_platform_data mma7660_pdata = {
-	.irq			= IRQ_EINT(25),
-	.poll_interval	= 100,
-	.input_fuzz		= 4,
-	.input_flat		= 4,
-};
-#endif
-
-static struct s3c2410_platform_i2c tiny4412_i2c3_data __initdata = {
-	.flags			= 0,
-	.bus_num		= 3,
-	.slave_addr		= 0x10,
-	.frequency		= 200*1000,
-	.sda_delay		= 100,
+static struct notifier_block exynos4_reboot_notifier = {
+	.notifier_call = exynos4_notifier_call,
 };
 
-static struct i2c_board_info smdk4x12_i2c_devs3[] __initdata = {
-#ifdef CONFIG_MXC_MMA845X
-	{
-		.type = "mma845x",
-		.addr = 0x1D,		/*mma845x i2c slave address*/
-		.platform_data = (void *)&mma845x_data,
-	},
-#endif
-#ifdef CONFIG_SENSORS_MMA7660
-	{
-		I2C_BOARD_INFO("mma7660", 0x4c),
-		.platform_data = &mma7660_pdata,
-	},
-#endif
-#ifdef CONFIG_TOUCHSCREEN_FT5X0X
-	{
-		I2C_BOARD_INFO("ft5x0x_ts", 0x38),   
-	},
-#endif
-};
-
-static struct i2c_board_info smdk4x12_i2c_devs5[] __initdata = {
-    {   
-        I2C_BOARD_INFO("mma865x",    0x1D),
-    },
-#ifdef CONFIG_SENSORS_MMC328xMA_MAG
-    {   
-        I2C_BOARD_INFO(MMC328X_I2C_NAME, MMC328X_I2C_ADDR),
-    },
-#endif
-
-};
-
-/* I2C module and id for HDMIPHY */
-static struct i2c_board_info smdk4x12_i2c_hdmiphy[] __initdata = {
-	{ I2C_BOARD_INFO("hdmiphy-exynos4412", 0x38), }
-};
-
-static void s5p_tv_setup(void)
-{
-	/* direct HPD to External Interrupt */
-	WARN_ON(gpio_request_one(EXYNOS4_GPX3(7), GPIOF_IN, "hpd-plug"));
-	s3c_gpio_cfgpin(EXYNOS4_GPX3(7), S3C_GPIO_SFN(0xf));
-	s3c_gpio_setpull(EXYNOS4_GPX3(7), S3C_GPIO_PULL_NONE);
-	gpio_free(EXYNOS4_GPX3(7));
-}
-
-static struct s3c2410_platform_i2c tiny4412_i2c7_data __initdata = {
-	.flags			= 0,
-	.bus_num		= 7,
-	.slave_addr		= 0x10,
-	.frequency		= 200*1000,
-	.sda_delay		= 100,
-};
-
-static struct i2c_board_info smdk4x12_i2c_devs7[] __initdata = {
-	{
-		I2C_BOARD_INFO("s5p_ddc", (0x74 >> 1)),
-	},
-};
-
-static void __init smdk4x12_touch_init(void)
-{
-	/* nothing here yet */
-}
-
-static struct samsung_bl_gpio_info smdk4x12_bl_gpio_info = {
-	.no = EXYNOS4_GPD0(1),
-	.func = S3C_GPIO_SFN(2),
-};
-
-static struct platform_pwm_backlight_data smdk4x12_bl_data = {
-	.pwm_id = 1,
-	.pwm_period_ns  = 78770,
-	.max_brightness = 255,
-	.dft_brightness = 128,//128,
-};
-
-static struct s3c_fb_pd_win smdk4x12_fb_win0 = {
-	.xres			= 480,
-	.yres			= 800,
-	.virtual_x		= 480,
-	.virtual_y		= 800 * CONFIG_FB_S3C_NR_BUFFERS,
-	.max_bpp		= 32,
-	.default_bpp	= 24,
-	.width			= 66,
-	.height			= 109,
-};
-
-static struct s3c_fb_pd_win smdk4x12_fb_win1 = {
-	.xres			= 480,
-	.yres			= 800,
-	.virtual_x		= 480,
-	.virtual_y		= 800 * CONFIG_FB_S3C_NR_BUFFERS,
-	.max_bpp		= 32,
-	.default_bpp	= 24,
-	.width			= 66,
-	.height			= 109,
-};
-
-static struct s3c_fb_pd_win smdk4x12_fb_win2 = {
-	.xres			= 480,
-	.yres			= 800,
-	.virtual_x		= 480,
-	.virtual_y		= 800 * CONFIG_FB_S3C_NR_BUFFERS,
-	.max_bpp		= 32,
-	.default_bpp	= 24,
-	.width			= 66,
-	.height			= 109,
-};
-
-static struct s3c_fb_pd_win smdk4x12_fb_win3 = {
-	.xres			= 480,
-	.yres			= 800,
-	.virtual_x		= 480,
-	.virtual_y		= 800 * CONFIG_FB_S3C_NR_BUFFERS,
-	.max_bpp		= 32,
-	.default_bpp	= 24,
-	.width			= 66,
-	.height			= 109,
-};
-
-static struct s3c_fb_pd_win smdk4x12_fb_win4 = {
-	.xres			= 480,
-	.yres			= 800,
-	.virtual_x		= 480,
-	.virtual_y		= 800 * CONFIG_FB_S3C_NR_BUFFERS,
-	.max_bpp		= 32,
-	.default_bpp	= 24,
-	.width			= 66,
-	.height			= 109,
-};
-
-static struct fb_videomode smdk4x12_lcd_timing = {
-	.left_margin	= 9,
-	.right_margin	= 9,
-	.upper_margin	= 5,
-	.lower_margin	= 5,
-	.hsync_len	= 2,
-	.vsync_len	= 2,
-	.xres		= 480,
-	.yres		= 800,
-};
-
-static struct s3c_fb_platdata smdk4x12_lcd0_pdata __initdata = {
-	.win[0]		= &smdk4x12_fb_win0,
-	.win[1]		= &smdk4x12_fb_win1,
-	.win[2]		= &smdk4x12_fb_win2,
-	.win[3]		= &smdk4x12_fb_win3,
-	.win[4]		= &smdk4x12_fb_win4,
-	.vtiming	= &smdk4x12_lcd_timing,
-	.vidcon0	= VIDCON0_VIDOUT_RGB | VIDCON0_PNRMODE_RGB,
-	.vidcon1	= VIDCON1_INV_HSYNC | VIDCON1_INV_VSYNC,
-	.setup_gpio	= exynos4_fimd0_gpio_setup_24bpp,
-};
-
-static void __init tiny4412_fb_init_pdata(struct s3c_fb_platdata *pd) {
-	struct s3cfb_lcd *lcd;
-	struct s3c_fb_pd_win *win;
-	struct fb_videomode *mode = pd->vtiming;
-	unsigned long val = 0;
-	u64 pixclk = 1000000000000ULL;
-	u32 div;
-	int i;
-
-	lcd = tiny4412_get_lcd();
-
-	for (i = 0; i < S3C_FB_MAX_WIN; i++) {
-		if (pd->win[i] == NULL)
-			continue;
-
-		win = pd->win[i];
-		win->xres		= lcd->width;
-		win->yres		= lcd->height;
-		win->default_bpp= lcd->bpp ? : 24;
-		win->virtual_x	= win->xres;
-		win->virtual_y	= win->yres * CONFIG_FB_S3C_NR_BUFFERS;
-		win->width		= lcd->p_width;
-		win->height		= lcd->p_height;
-	}
-
-	mode->left_margin	= lcd->timing.h_bp;
-	mode->right_margin	= lcd->timing.h_fp;
-	mode->upper_margin	= lcd->timing.v_bp;
-	mode->lower_margin	= lcd->timing.v_fp;
-	mode->hsync_len		= lcd->timing.h_sw;
-	mode->vsync_len		= lcd->timing.v_sw;
-	mode->xres			= lcd->width;
-	mode->yres			= lcd->height;
-
-	/* calculates pixel clock */
-	div  = mode->left_margin + mode->hsync_len + mode->right_margin +
-		mode->xres;
-	div *= mode->upper_margin + mode->vsync_len + mode->lower_margin +
-		mode->yres;
-	div *= lcd->freq ? : 60;
-
-	do_div(pixclk, div);
-
-	mode->pixclock		= pixclk + 386;
-
-	/* initialize signal polarity of RGB interface */
-	if (lcd->polarity.rise_vclk)
-		val |= VIDCON1_INV_VCLK;
-	if (lcd->polarity.inv_hsync)
-		val |= VIDCON1_INV_HSYNC;
-	if (lcd->polarity.inv_vsync)
-		val |= VIDCON1_INV_VSYNC;
-	if (lcd->polarity.inv_vden)
-		val |= VIDCON1_INV_VDEN;
-
-	pd->vidcon1 = val;
-}
-
-#ifdef CONFIG_S3C64XX_DEV_SPI0
-static struct s3c64xx_spi_csinfo spi0_csi[] = {
-	[0] = {
-		.line = EXYNOS4_GPB(1),
-		.fb_delay = 0x0,
-	},
-};
-
-static struct spi_board_info spi0_board_info[] __initdata = {
-	{
-		.modalias = "spidev",
-		.platform_data = NULL,
-		.max_speed_hz = 10*1000*1000,
-		.bus_num = 0,
-		.chip_select = 0,
-		.mode = SPI_MODE_0,
-		.controller_data = &spi0_csi[0],
-	}
-};
-#endif
-
-#ifdef CONFIG_S3C64XX_DEV_SPI1
-static struct s3c64xx_spi_csinfo spi1_csi[] = {
-	[0] = {
-		.line = EXYNOS4_GPB(5),
-		.fb_delay = 0x0,
-	},
-};
-
-static struct spi_board_info spi1_board_info[] __initdata = {
-	{
-		.modalias = "spidev",
-		.platform_data = NULL,
-		.max_speed_hz = 10*1000*1000,
-		.bus_num = 1,
-		.chip_select = 0,
-		.mode = SPI_MODE_0,
-		.controller_data = &spi1_csi[0],
-	}
-};
-#endif
-
-#ifdef CONFIG_S3C64XX_DEV_SPI2
-static struct s3c64xx_spi_csinfo spi2_csi[] = {
-	[0] = {
-		.line = EXYNOS4_GPC1(2),
-		.fb_delay = 0x0,
-	},
-};
-
-static struct spi_board_info spi2_board_info[] __initdata = {
-	{
-		.modalias = "spidev",
-		.platform_data = NULL,
-		.max_speed_hz = 10*1000*1000,
-		.bus_num = 2,
-		.chip_select = 0,
-		.mode = SPI_MODE_0,
-		.controller_data = &spi2_csi[0],
-	}
-};
-#endif
-
-#ifdef CONFIG_LCD_LMS501KF03
-static int lcd_power_on(struct lcd_device *ld, int enable)
-{
-	return 1;
-}
-
-static int reset_lcd(struct lcd_device *ld)
-{
-	int err = 0;
-	err = gpio_request_one(EXYNOS4X12_GPM3(6),
-			GPIOF_OUT_INIT_HIGH, "GPM3");
-	if (err) {
-		pr_err("failed to request GPM3 for lcd reset control\n");
-		return err;
-	}
-	gpio_set_value(EXYNOS4X12_GPM3(6), 0);
-	mdelay(1);
-	gpio_set_value(EXYNOS4X12_GPM3(6), 1);
-	gpio_free(EXYNOS4X12_GPM3(6));
-
-	return 1;
-}
-
-static struct lcd_platform_data lms501kf03_platform_data = {
-	.reset			= reset_lcd,
-	.power_on		= lcd_power_on,
-	.lcd_enabled	= 0,
-	.reset_delay	= 100,  /* 100ms */
-};
-
-#define LCD_BUS_NUM		3
-static struct spi_board_info spi_board_info[] __initdata = {
-	{
-		.modalias		= "lms501kf03",
-		.platform_data	= (void *)&lms501kf03_platform_data,
-		.max_speed_hz	= 1200000,
-		.bus_num		= LCD_BUS_NUM,
-		.chip_select	= 0,
-		.mode			= SPI_MODE_3,
-		.controller_data	= (void *)EXYNOS4_GPB(5),
-	}
-};
-
-static struct spi_gpio_platform_data lms501kf03_spi_gpio_data = {
-	.sck	= EXYNOS4_GPB(4), /* DISPLAY_CLK */
-	.mosi	= EXYNOS4_GPB(7), /* DISPLAY_SI */
-	.miso	= SPI_GPIO_NO_MISO,
-	.num_chipselect = 1,
-};
-
-static struct platform_device s3c_device_spi_gpio = {
-	.name	= "spi_gpio",
-	.id		= LCD_BUS_NUM,
-	.dev	= {
-		.parent			= &s5p_device_fimd0.dev,
-		.platform_data	= &lms501kf03_spi_gpio_data,
-	},
-};
-#endif
-
-#ifdef CONFIG_EXYNOS4_DEV_DWMCI
 static void exynos_dwmci_cfg_gpio(int width)
 {
 	unsigned int gpio;
@@ -1501,20 +239,20 @@ static void exynos_dwmci_cfg_gpio(int width)
 	}
 
 	switch (width) {
-	case MMC_BUS_WIDTH_8:
+	case 8:
 		for (gpio = EXYNOS4_GPK1(3); gpio <= EXYNOS4_GPK1(6); gpio++) {
 			s3c_gpio_cfgpin(gpio, S3C_GPIO_SFN(4));
 			s3c_gpio_setpull(gpio, S3C_GPIO_PULL_UP);
 			s5p_gpio_set_drvstr(gpio, S5P_GPIO_DRVSTR_LV2);
 		}
-	case MMC_BUS_WIDTH_4:
+	case 4:
 		for (gpio = EXYNOS4_GPK0(3); gpio <= EXYNOS4_GPK0(6); gpio++) {
 			s3c_gpio_cfgpin(gpio, S3C_GPIO_SFN(3));
 			s3c_gpio_setpull(gpio, S3C_GPIO_PULL_UP);
 			s5p_gpio_set_drvstr(gpio, S5P_GPIO_DRVSTR_LV2);
 		}
 		break;
-	case MMC_BUS_WIDTH_1:
+	case 1:
 		gpio = EXYNOS4_GPK0(3);
 		s3c_gpio_cfgpin(gpio, S3C_GPIO_SFN(3));
 		s3c_gpio_setpull(gpio, S3C_GPIO_PULL_UP);
@@ -1536,469 +274,236 @@ static struct dw_mci_board exynos_dwmci_pdata __initdata = {
 	.cclk_name		= "sclk_dwmci",
 	.cfg_gpio		= exynos_dwmci_cfg_gpio,
 };
-#endif
 
-static int exynos_boot_dev;
-
-#define is_bootfrom_emmc()	\
-	((exynos_boot_dev == 0x6) || (exynos_boot_dev == 0x7))
-#define is_bootfrom_sd()	\
-	 (exynos_boot_dev == 0x3)
-
-static void __init exynos_bootdev_init(void)
-{
-	u32 capboot = MMC_CAP2_BOOT_DEVICE;
-
-	exynos_boot_dev = __raw_readl(S5P_INFORM3);
-
-	if (is_bootfrom_emmc()) {
-#if defined(CONFIG_EXYNOS4_DEV_DWMCI)
-		exynos_dwmci_pdata.caps2 |= capboot;
-#endif
-	} else if (is_bootfrom_sd()) {
-		smdk4x12_hsmmc2_pdata.host_caps2 |= capboot;
-	} else {
-		/* oops...should never fly to here */
-		printk(KERN_ERR "Unknown boot device\n");
-	}
-}
-
-/* HW revision */
-static int tiny4412_hw_rev;
-
-static void __init tiny4412_hwrev_init(void)
-{
-	struct gpio hw_rev_gpios[] = {
-		{ EXYNOS4X12_GPM3(5), GPIOF_IN, "hw_rev0" },
-		{ EXYNOS4X12_GPM3(6), GPIOF_IN, "hw_rev1" },
-		{ EXYNOS4X12_GPM3(7), GPIOF_IN, "hw_rev2" },
-	};
-	int i, ret;
-
-	ret = gpio_request_array(hw_rev_gpios,
-			ARRAY_SIZE(hw_rev_gpios));
-	BUG_ON(ret);
-
-	for (i = 0; i < ARRAY_SIZE(hw_rev_gpios); i++)
-		tiny4412_hw_rev |= gpio_get_value(hw_rev_gpios[i].gpio) << i;
-
-	printk("HW revision: %d\n", tiny4412_hw_rev);
-}
-
-int board_get_revision(void)
-{
-	return tiny4412_hw_rev;
-}
-
-static void __init tiny4412_wifi_init(void)
-{
-	/* sdwifi (external): PDn --> RESETn */
-#define SDWIFI_GPIO_PD		EXYNOS4_GPX1(5)
-#define SDWIFI_GPIO_RESET	EXYNOS4_GPX1(4)
-	int ret;
-
-	ret = gpio_request(SDWIFI_GPIO_PD, "SDWIFI_PD");
-	if (ret)
-		printk(KERN_ERR "failed to request GPIO %d for wifi, %d\n",
-				SDWIFI_GPIO_PD, ret);
-
-	gpio_direction_output(SDWIFI_GPIO_PD, 1);
-	udelay(10);
-	gpio_free(SDWIFI_GPIO_PD);
-
-	ret = gpio_request(SDWIFI_GPIO_RESET, "SDWIFI_RESET");
-	if (ret)
-		printk(KERN_ERR "failed to request GPIO %d for wifi, %d\n",
-				SDWIFI_GPIO_RESET, ret);
-
-	gpio_direction_output(SDWIFI_GPIO_RESET, 1);
-	gpio_free(SDWIFI_GPIO_RESET);
-}
-
-#ifdef CONFIG_INPUT_GPIO
-static struct gpio_event_direct_entry tiny4412_key_map[] = {
-	{
-		.gpio	= EXYNOS4_GPX3(2),
-		.code	= KEY_MENU,
-	}, {
-		.gpio	= EXYNOS4_GPX3(3),
-		.code	= KEY_HOME,
-	}, {
-		.gpio	= EXYNOS4_GPX3(4),
-		.code	= KEY_BACK,
-	}, {
-		.gpio	= EXYNOS4_GPX3(5),
-		.code	= 353,	/* DPAD_CENTER */
-	},
+static struct s3c_sdhci_platdata smdk4x12_hsmmc2_pdata __initdata = {
+	.cd_type		= S3C_SDHCI_CD_INTERNAL,
 };
 
-static struct gpio_event_input_info tiny4412_key_info = {
-	.info.func			= gpio_event_input_func,
-	.info.no_suspend	= true,
-	.debounce_time.tv64	= 20 * NSEC_PER_MSEC,
-	.type				= EV_KEY,
-	.keymap				= tiny4412_key_map,
-	.keymap_size		= ARRAY_SIZE(tiny4412_key_map)
+static struct s3c_sdhci_platdata smdk4x12_hsmmc3_pdata __initdata = {
+	.cd_type		= S3C_SDHCI_CD_INTERNAL,
 };
 
-static struct gpio_event_info *tiny4412_input_info[] = {
-	&tiny4412_key_info.info,
-};
-
-static struct gpio_event_platform_data tiny4412_input_data = {
-	.names	= {
-		"tiny4412-key",
-		NULL,
-	},
-	.info		= tiny4412_input_info,
-	.info_count	= ARRAY_SIZE(tiny4412_input_info),
-};
-
-static struct platform_device tiny4412_input_device = {
-	.name	= GPIO_EVENT_DEV_NAME,
-	.id		= 0,
-	.dev	= {
-		.platform_data = &tiny4412_input_data,
-	},
-};
-
-static void tiny4412_key_info_fixup(void)
-{
-	/* Remove 2 hard key for special board */
-	tiny4412_key_info.keymap_size -= 2;
-}
-#endif
-
-#ifdef CONFIG_IR_GPIO_CIR
-#include <media/gpio-ir-recv.h>
-
-static struct gpio_ir_recv_platform_data tiny4412_rc_data = {
-	.gpio_nr	= EXYNOS4_GPX2(7),
-	.active_low	= 1,
-};
-
-static struct platform_device tiny4412_device_gpiorc = {
-	.name	= "gpio-rc-recv",
-	.id		= -1,
-	.dev	= {
-		.platform_data = &tiny4412_rc_data,
-	},
-};
-#endif
-
-static struct platform_device tiny4412_device_1wire = {
-	.name			= "tiny4412_1wire",
-	.id				= -1,
-	.num_resources	= 0,
-};
-
-static struct platform_device tiny4412_device_adc = {
-	.name			= "tiny4412_adc",
-	.id				= -1,
-	.num_resources	= 0,
-};
-
-#ifdef CONFIG_SAMSUNG_DEV_KEYPAD
-static uint32_t smdk4x12_keymap[] __initdata = {
-	/* KEY(row, col, keycode) */
-	KEY(1, 3, KEY_1), KEY(1, 4, KEY_2), KEY(1, 5, KEY_3),
-	KEY(1, 6, KEY_4), KEY(1, 7, KEY_5),
-	KEY(2, 5, KEY_D), KEY(2, 6, KEY_A), KEY(2, 7, KEY_B),
-	KEY(0, 7, KEY_E), KEY(0, 5, KEY_C),
-	KEY(0, 6, KEY_DOWN), KEY(0, 3, KEY_MENU), KEY(0, 4, KEY_RIGHT)
-};
-
-static struct matrix_keymap_data smdk4x12_keymap_data __initdata = {
-	.keymap			= smdk4x12_keymap,
-	.keymap_size	= ARRAY_SIZE(smdk4x12_keymap),
-};
-
-static struct samsung_keypad_platdata smdk4x12_keypad_data __initdata = {
-	.keymap_data	= &smdk4x12_keymap_data,
-	.rows			= 3,
-	.cols			= 8,
-};
-#endif
-
-/* Audio */
-static struct platform_device tiny4412_audio = {
-	.name		= "tiny4412-audio",
-	.id			= -1,
-};
-
-/* USB OTG */
-static struct s3c_hsotg_plat smdk4x12_hsotg_pdata;
-
-static struct platform_device exynos4_bus_devfreq = {
-	.name		= "exynos4412-busfreq",
-	.id			= 1,
-};
-
-/* USB EHCI */
 static struct s5p_ehci_platdata smdk4x12_ehci_pdata;
 
 static void __init smdk4x12_ehci_init(void)
 {
 	struct s5p_ehci_platdata *pdata = &smdk4x12_ehci_pdata;
-	int err;
 
 	s5p_ehci_set_platdata(pdata);
-
-#define GPIO_USBH_RESET		EXYNOS4X12_GPM2(4)
-	err = gpio_request_one(GPIO_USBH_RESET,
-			GPIOF_OUT_INIT_HIGH, "USBH_RESET");
-	if (err)
-		pr_err("failed to request GPM2_4 for USB reset control\n");
-
-	s3c_gpio_setpull(GPIO_USBH_RESET, S3C_GPIO_PULL_UP);
-	gpio_set_value(GPIO_USBH_RESET, 0);
-	mdelay(1);
-	gpio_set_value(GPIO_USBH_RESET, 1);
-	gpio_free(GPIO_USBH_RESET);
 }
 
-/* USB OHCI */
-static struct exynos4_ohci_platdata smdk4x12_ohci_pdata;
+static struct exynos4_ohci_platdata origen_ohci_pdata;
 
 static void __init smdk4x12_ohci_init(void)
 {
-	struct exynos4_ohci_platdata *pdata = &smdk4x12_ohci_pdata;
+	struct exynos4_ohci_platdata *pdata = &origen_ohci_pdata;
 
 	exynos4_ohci_set_platdata(pdata);
 }
+#if 0
+/* USB GADGET */
+static struct s5p_usbgadget_platdata smdk4x12_usbgadget_pdata;
 
-#ifdef CONFIG_BUSFREQ_OPP
-/* BUSFREQ to control memory/bus*/
-static struct device_domain busfreq;
-#endif
-static struct platform_device exynos4_busfreq = {
-	.id = -1,
-	.name = "exynos-busfreq",
-};
+static void __init smdk4x12_usbgadget_init(void)
+{
+	struct s5p_usbgadget_platdata *pdata = &smdk4x12_usbgadget_pdata;
 
-#ifdef CONFIG_TOTOPS_RFID
-static struct platform_device totops_rfid = {
-	.id = -1,
-	.name = "totops-rfid",
-};
+	s5p_usbgadget_set_platdata(pdata);
+}
 #endif
 
-#ifdef CONFIG_SWITCH_GPIO
-static struct gpio_switch_platform_data headset_switch_data = {
-    .name = "h2w",
-    .gpio = EXYNOS4_GPX2(6),
+static struct regulator_consumer_supply mipi_csi_fixed_voltage_supplies[] = {
+	REGULATOR_SUPPLY("mipi_csi", "s5p-mipi-csis.0"),
+	REGULATOR_SUPPLY("mipi_csi", "s5p-mipi-csis.1"),
 };
 
-static struct resource switch_gpio_resource[] = {
-        [0] = {
-                .start  = IRQ_EINT(22),
-                .end    = IRQ_EINT(22),
-                .flags  = IORESOURCE_IRQ,
-        },
+static struct regulator_init_data mipi_csi_fixed_voltage_init_data = {
+	.constraints = {
+		.always_on = 1,
+	},
+	.num_consumer_supplies	= ARRAY_SIZE(mipi_csi_fixed_voltage_supplies),
+	.consumer_supplies	= mipi_csi_fixed_voltage_supplies,
 };
 
-static struct platform_device headset_switch_device = {
-    .name = "switch-gpio",
-    .dev = {
-        .platform_data = &headset_switch_data,
+static struct fixed_voltage_config mipi_csi_fixed_voltage_config = {
+	.supply_name	= "DC_5V",
+	.microvolts	= 5000000,
+	.gpio		= -EINVAL,
+	.init_data	= &mipi_csi_fixed_voltage_init_data,
+};
+
+static struct platform_device mipi_csi_fixed_voltage = {
+	.name		= "reg-fixed-voltage",
+	.id		= 3,
+	.dev		= {
+		.platform_data	= &mipi_csi_fixed_voltage_config,
+	},
+};
+
+static struct regulator_consumer_supply wm8994_fixed_voltage0_supplies[] = {
+	REGULATOR_SUPPLY("AVDD2", "1-001a"),
+	REGULATOR_SUPPLY("CPVDD", "1-001a"),
+};
+
+static struct regulator_consumer_supply wm8994_fixed_voltage1_supplies[] = {
+	REGULATOR_SUPPLY("SPKVDD1", "1-001a"),
+	REGULATOR_SUPPLY("SPKVDD2", "1-001a"),
+};
+
+static struct regulator_consumer_supply wm8994_fixed_voltage2_supplies =
+	REGULATOR_SUPPLY("DBVDD", "1-001a");
+
+static struct regulator_init_data wm8994_fixed_voltage0_init_data = {
+	.constraints = {
+		.always_on = 1,
+	},
+	.num_consumer_supplies	= ARRAY_SIZE(wm8994_fixed_voltage0_supplies),
+	.consumer_supplies	= wm8994_fixed_voltage0_supplies,
+};
+
+static struct regulator_init_data wm8994_fixed_voltage1_init_data = {
+	.constraints = {
+		.always_on = 1,
+	},
+	.num_consumer_supplies	= ARRAY_SIZE(wm8994_fixed_voltage1_supplies),
+	.consumer_supplies	= wm8994_fixed_voltage1_supplies,
+};
+
+static struct regulator_init_data wm8994_fixed_voltage2_init_data = {
+	.constraints = {
+		.always_on = 1,
+	},
+	.num_consumer_supplies	= 1,
+	.consumer_supplies	= &wm8994_fixed_voltage2_supplies,
+};
+
+static struct fixed_voltage_config wm8994_fixed_voltage0_config = {
+	.supply_name	= "VDD_1.8V",
+	.microvolts	= 1800000,
+	.gpio		= -EINVAL,
+	.init_data	= &wm8994_fixed_voltage0_init_data,
+};
+
+static struct fixed_voltage_config wm8994_fixed_voltage1_config = {
+	.supply_name	= "DC_5V",
+	.microvolts	= 5000000,
+	.gpio		= -EINVAL,
+	.init_data	= &wm8994_fixed_voltage1_init_data,
+};
+
+static struct fixed_voltage_config wm8994_fixed_voltage2_config = {
+	.supply_name	= "VDD_3.3V",
+	.microvolts	= 3300000,
+	.gpio		= -EINVAL,
+	.init_data	= &wm8994_fixed_voltage2_init_data,
+};
+
+static struct platform_device wm8994_fixed_voltage0 = {
+	.name		= "reg-fixed-voltage",
+	.id		= 0,
+	.dev		= {
+		.platform_data	= &wm8994_fixed_voltage0_config,
+	},
+};
+
+static struct platform_device wm8994_fixed_voltage1 = {
+	.name		= "reg-fixed-voltage",
+	.id		= 1,
+	.dev		= {
+		.platform_data	= &wm8994_fixed_voltage1_config,
+	},
+};
+
+static struct platform_device wm8994_fixed_voltage2 = {
+	.name		= "reg-fixed-voltage",
+	.id		= 2,
+	.dev		= {
+		.platform_data	= &wm8994_fixed_voltage2_config,
+	},
+};
+
+static struct regulator_consumer_supply wm8994_avdd1_supply =
+	REGULATOR_SUPPLY("AVDD1", "1-001a");
+
+static struct regulator_consumer_supply wm8994_dcvdd_supply =
+	REGULATOR_SUPPLY("DCVDD", "1-001a");
+
+static struct regulator_init_data wm8994_ldo1_data = {
+	.constraints	= {
+		.name		= "AVDD1",
+	},
+	.num_consumer_supplies	= 1,
+	.consumer_supplies	= &wm8994_avdd1_supply,
+};
+
+static struct regulator_init_data wm8994_ldo2_data = {
+	.constraints	= {
+		.name		= "DCVDD",
+	},
+	.num_consumer_supplies	= 1,
+	.consumer_supplies	= &wm8994_dcvdd_supply,
+};
+
+static struct wm8994_pdata wm8994_platform_data = {
+	/* configure gpio1 function: 0x0001(Logic level input/output) */
+	.gpio_defaults[0] = 0x0001,
+	/* If the i2s0 and i2s2 is enabled simultaneously */
+	.gpio_defaults[7] = 0x8100, /* GPIO8  DACDAT3 in */
+	.gpio_defaults[8] = 0x0100, /* GPIO9  ADCDAT3 out */
+	.gpio_defaults[9] = 0x0100, /* GPIO10 LRCLK3  out */
+	.gpio_defaults[10] = 0x0100,/* GPIO11 BCLK3   out */
+	.ldo[0] = { 0, &wm8994_ldo1_data },
+	.ldo[1] = { 0, &wm8994_ldo2_data },
+};
+
+static struct i2c_board_info i2c_devs0[] __initdata = {
+	{
+		I2C_BOARD_INFO("axp229", 0x68>> 1),
+	},
+};
+
+static struct i2c_board_info i2c_devs1[] __initdata = {
+	{
+		I2C_BOARD_INFO("wm8994", 0x1a),
+		.platform_data	= &wm8994_platform_data,
+	},
+};
+
+static struct i2c_board_info i2c_devs2[] __initdata = {
+	{
+		I2C_BOARD_INFO("s5p_ddc", (0x74 >> 1)),
+	},
+};
+
+static struct i2c_board_info i2c_devs3[] __initdata = {
+    { I2C_BOARD_INFO("ft5x0x_ts", 0x38),   },
+};
+
+static struct i2c_board_info i2c_devs4[] __initdata = {
+    {   
+        I2C_BOARD_INFO("wm8978", 0x1a),
     },
-    .num_resources  = ARRAY_SIZE(switch_gpio_resource),
-    .resource = switch_gpio_resource,
-};
-#endif
-
-#ifdef CONFIG_BATTERY_SAMSUNG
-static struct platform_device samsung_device_battery = {
-	.name	= "samsung-fake-battery",
-	.id = -1,
-};
-#endif
-
-static struct platform_device *smdk4x12_devices[] __initdata = {
-#ifdef CONFIG_EXYNOS4_DEV_DWMCI
-	&exynos_device_dwmci,
-#endif
-	&s3c_device_hsmmc2,
-	&s3c_device_hsmmc3,
-	&wm8994_fixed_voltage0,
-	&wm8994_fixed_voltage1,
-	&wm8994_fixed_voltage2,
-	&s3c_device_i2c0,
-	&s3c_device_i2c1,
-	&s3c_device_i2c2,
-	&s3c_device_i2c3,
-#ifdef CONFIG_VIDEO_M5MOLS
-	&s3c_device_i2c4,
-#endif
-	&s3c_device_i2c7,
-	&s3c_device_adc,
-	&s3c_device_rtc,
-	&s3c_device_wdt,
-#ifdef CONFIG_TINY4412_BUZZER
-	&s3c_device_timer[0],
-#endif
-#ifdef CONFIG_VIDEO_EXYNOS_FIMC_LITE
-	&exynos_device_flite0,
-	&exynos_device_flite1,
-#endif
-	&s5p_device_mipi_csis0,
-	&s5p_device_mipi_csis1,
-	&s5p_device_fimc0,
-	&s5p_device_fimc1,
-	&s5p_device_fimc2,
-	&s5p_device_fimc3,
-	&s5p_device_fimc_md,
-	&s5p_device_fimd0,
-	&mali_gpu_device,
-	&s5p_device_mfc,
-	&s5p_device_mfc_l,
-	&s5p_device_mfc_r,
-	&s5p_device_jpeg,
-#ifdef CONFIG_SAMSUNG_DEV_KEYPAD
-	&samsung_device_keypad,
-#endif
-	&tiny4412_device_1wire,
-	&tiny4412_device_adc,
-#ifdef CONFIG_INPUT_GPIO
-	&tiny4412_input_device,
-#endif
-#ifdef CONFIG_IR_GPIO_CIR
-	&tiny4412_device_gpiorc,
-#endif
-#ifdef CONFIG_VIDEO_EXYNOS_FIMC_IS
-	&exynos4_device_fimc_is,
-#endif
-#ifdef CONFIG_LCD_LMS501KF03
-	&s3c_device_spi_gpio,
-#endif
-#ifdef CONFIG_S3C64XX_DEV_SPI0
-	&s3c64xx_device_spi0,
-#endif
-#ifdef CONFIG_S3C64XX_DEV_SPI1
-	&s3c64xx_device_spi1,
-#endif
-#ifdef CONFIG_S3C64XX_DEV_SPI2
-	&s3c64xx_device_spi2,
-#endif
-#ifdef CONFIG_ION_EXYNOS
-	&exynos_device_ion,
-#endif
-	&s5p_device_i2c_hdmiphy,
-	&s5p_device_hdmi,
-	&s5p_device_mixer,
-	&exynos4_bus_devfreq,
-	&samsung_asoc_dma,
-	&samsung_asoc_idma,
-#ifdef CONFIG_SND_SAMSUNG_I2S
-	&exynos4_device_i2s0,
-#endif
-#ifdef CONFIG_SND_SAMSUNG_PCM
-	&exynos4_device_pcm0,
-#endif
-#ifdef CONFIG_SND_SAMSUNG_SPDIF
-	&exynos4_device_spdif,
-#endif
-	&tiny4412_audio,
-#ifdef CONFIG_VIDEO_EXYNOS_FIMG2D
-	&s5p_device_fimg2d,
-#endif
-#ifdef CONFIG_EXYNOS_THERMAL
-	&exynos_device_tmu,
-#endif
-	&s5p_device_ehci,
-	&exynos4_device_ohci,
-	&s5p_device_usbswitch,
-#if defined CONFIG_SND_SAMSUNG_ALP
-	&exynos_device_srp,
-#endif
-#ifdef CONFIG_BUSFREQ_OPP
-	&exynos4_busfreq,
-#endif
-#ifdef CONFIG_BATTERY_SAMSUNG
-	&samsung_device_battery,
-#endif
-#ifdef CONFIG_TOTOPS_RFID
-	&totops_rfid,
-#endif
-#ifdef CONFIG_SWITCH_GPIO
-    &headset_switch_device,
-#endif
 };
 
-static void __init smdk4x12_map_io(void)
-{
-	clk_xusbxti.rate = 24000000;
+static struct i2c_board_info i2c_devs5[] __initdata = {
+    {   
+        I2C_BOARD_INFO("mma865x",    0x1D),
+    },
 
-	exynos_init_io(NULL, 0);
-	s3c24xx_init_clocks(clk_xusbxti.rate);
-	s3c24xx_init_uarts(smdk4x12_uartcfgs, ARRAY_SIZE(smdk4x12_uartcfgs));
-}
-
-static void __init smdk4x12_reserve(void)
-{
-	// HACK: This reserved memory will be used for FIMC-IS
-	s5p_mfc_reserve_mem(0x58000000, 32<< 20, 0x43000000, 0 << 20);
-}
-
-static void smdk4x12_pmu_wdt_init(void)
-{
-	unsigned int value;
-
-	if (soc_is_exynos4212() || soc_is_exynos4412()) {
-		value = __raw_readl(S5P_AUTOMATIC_WDT_RESET_DISABLE);
-		value &= ~S5P_SYS_WDTRESET;
-		__raw_writel(value, S5P_AUTOMATIC_WDT_RESET_DISABLE);
-		value = __raw_readl(S5P_MASK_WDT_RESET_REQUEST);
-		value &= ~S5P_SYS_WDTRESET;
-		__raw_writel(value, S5P_MASK_WDT_RESET_REQUEST);
-	}
-}
-
-static void smdk4x12_rtc_wake_init(void)
-{
-#ifdef CONFIG_PM
-	gic_arch_extn.irq_set_wake = s3c_irq_wake;
-#endif
-}
-
-static struct s3c2410_platform_i2c universal_i2c4_platdata __initdata = {
-	.frequency	= 300 * 1000,
-	.sda_delay	= 200,
 };
-#ifdef CONFIG_VIDEO_EXYNOS_FIMC_LITE
-static void __set_flite_camera_config(struct exynos_platform_flite *data,
-                                        u32 active_index, u32 max_cam)
-{       
-        data->active_cam_index = active_index;
-        data->num_clients = max_cam;
-}
 
-static void __init smdk4x12_set_camera_flite_platdata(void)
-{
-        int flite0_cam_index = 0;
-        int flite1_cam_index = 0;
+static struct i2c_board_info i2c_devs7[] __initdata = {
 
-        __set_flite_camera_config(&exynos_flite0_default_data, 0, flite0_cam_index);
-        __set_flite_camera_config(&exynos_flite1_default_data, 0, flite1_cam_index);
-}
-#endif
+};
 
-/* usb phy0 mode */
-static int uhost0 = 0;
+static struct fimg2d_platdata fimg2d_data __initdata = {
+	.hw_ver = 0x41,
+	.parent_clkname = "mout_g2d0",
+	.clkname = "sclk_fimg2d",
+	.gate_clkname = "fimg2d",
+	.clkrate = 250 * 1000000,	/* 200 Mhz */
+};
 
-static int __init tiny4412_setup_uhost(char *str)
-{
-	if (!strcasecmp(str, "y") || !strcmp(str, "1") ||
-		!strcasecmp(str, "yes")) {
-		printk("USB PHY0 configured as HOST mode\n");
-		uhost0 = 1;
-	}
-
-	return 0;
-}
-early_param("uhost0", tiny4412_setup_uhost);
-
-#ifdef CONFIG_USB_EXYNOS_SWITCH
 static struct s5p_usbswitch_platdata smdk4x12_usbswitch_pdata;
 
 static void __init smdk4x12_usbswitch_init(void)
@@ -2054,286 +559,600 @@ static void __init smdk4x12_usbswitch_init(void)
 
 	s5p_usbswitch_set_platdata(pdata);
 }
-#endif
 
-#ifdef CONFIG_VIDEO_EXYNOS_FIMG2D
-static struct fimg2d_platdata fimg2d_data __initdata = {
-	.ip_ver			= IP_VER_G2D_4P,
-	.hw_ver			= 0x41,
-	.parent_clkname	= "mout_g2d0",
-	.clkname		= "sclk_fimg2d",
-	.gate_clkname	= "fimg2d",
-	.clkrate		= 200 * MHZ,
+static struct platform_device exynos4_busfreq = {
+	.id = -1,
+	.name = "exynos-busfreq",
+};
+
+static struct platform_device *smdk4412_devices[] __initdata = {
+	&s3c_device_adc,
+};
+
+static struct platform_device totops_rfid = {
+	.id = -1,
+	.name = "totops-rfid",
+};
+
+static struct gpio_switch_platform_data headset_switch_data = {
+    .name = "h2w",
+    .gpio = EXYNOS4_GPX2(6),
+};
+
+static struct resource switch_gpio_resource[] = {
+        [0] = {
+                .start  = IRQ_EINT(22),
+                .end    = IRQ_EINT(22),
+                .flags  = IORESOURCE_IRQ,
+        },
+};
+
+static struct platform_device headset_switch_device = {
+    .name = "switch-gpio",
+    .dev = {
+        .platform_data = &headset_switch_data,
+    },
+    .num_resources  = ARRAY_SIZE(switch_gpio_resource),
+    .resource = switch_gpio_resource,
+};
+
+static struct platform_device *smdk4x12_devices[] __initdata = {
+#ifdef CONFIG_EXYNOS_DEV_PD
+	/* Samsung Power Domain */
+	&exynos4_device_pd[PD_MFC],
+	&exynos4_device_pd[PD_G3D],
+	&exynos4_device_pd[PD_LCD0],
+	&exynos4_device_pd[PD_CAM],
+	&exynos4_device_pd[PD_TV],
+	&exynos4_device_pd[PD_GPS],
+	&exynos4_device_pd[PD_GPS_ALIVE],
+#endif
+/* mainline fimd */
+
+	/* legacy fimd */
+	//&s3c_device_fb,
+	&s3c_device_wdt,
+	&s3c_device_rtc,
+	&s3c_device_i2c0,
+	&s3c_device_i2c1,
+	&s3c_device_i2c2,
+	&s3c_device_i2c3,
+	&s3c_device_i2c4,
+	&s3c_device_i2c5,
+	&s3c_device_i2c7,
+	&s5p_device_ehci,
+	&exynos4_device_ohci,
+	//&s3c_device_usbgadget,
+
+	&s3c_device_hsmmc2,
+
+	&s3c_device_hsmmc3,
+	&exynos_device_dwmci,
+	//&exynos_device_i2s0,
+
+	//&exynos_device_srp,
+	//&s5p_device_tvout,
+	//&s5p_device_cec,
+	//&s5p_device_hpd,
+
+	&s5p_device_fimc0,
+	&s5p_device_fimc1,
+	&s5p_device_fimc2,
+	&s5p_device_fimc3,
+	&s5p_device_mipi_csis0,
+	&s5p_device_mipi_csis1,
+
+	&mipi_csi_fixed_voltage,
+
+	&s5p_device_mfc,
+	//&SYSMMU_PLATDEV(g2d_acp),
+	&SYSMMU_PLATDEV(fimc0),
+	&SYSMMU_PLATDEV(fimc1),
+	&SYSMMU_PLATDEV(fimc2),
+	&SYSMMU_PLATDEV(fimc3),
+	&SYSMMU_PLATDEV(jpeg),
+	&SYSMMU_PLATDEV(mfc_l),
+	&SYSMMU_PLATDEV(mfc_r),
+	&SYSMMU_PLATDEV(tv),
+
+	&s5p_device_fimg2d,
+
+	&s5p_device_jpeg,
+	&wm8994_fixed_voltage0,
+	&wm8994_fixed_voltage1,
+	&wm8994_fixed_voltage2,
+	&samsung_asoc_dma,
+	&samsung_asoc_idma,
+
+	//&exynos_device_tmu,
+	&exynos4_busfreq,
+	&totops_rfid,
+    &headset_switch_device,
+};
+#if 0
+/* below temperature base on the celcius degree */
+struct tmu_data exynos_tmu_data __initdata = {
+	.ts = {
+		.stop_throttle  = 82,
+		.start_throttle = 85,
+		.stop_warning  = 102,
+		.start_warning = 105,
+		.start_tripping = 110,		/* temp to do tripping */
+		.start_hw_tripping = 113,	/* temp to do hw_trpping*/
+		.stop_mem_throttle = 80,
+		.start_mem_throttle = 85,
+
+		.stop_tc = 13,
+		.start_tc = 10,
+	},
+	.cpulimit = {
+		.throttle_freq = 800000,
+		.warning_freq = 200000,
+	},
+	.temp_compensate = {
+		.arm_volt = 925000, /* vdd_arm in uV for temperature compensation */
+		.bus_volt = 900000, /* vdd_bus in uV for temperature compensation */
+		.g3d_volt = 900000, /* vdd_g3d in uV for temperature compensation */
+	},
+	.efuse_value = 55,
+	.slope = 0x10008802,
+	.mode = 0,
 };
 #endif
 
-static int __init exynos4_setup_clock(struct device *dev,
-						const char *clock,
-						const char *parent,
-						unsigned long clk_rate)
+#if 0
+static struct s5p_platform_hpd hdmi_hpd_data __initdata = {
+
+};
+static struct s5p_platform_cec hdmi_cec_data __initdata = {
+
+};
+#endif
+
+
+#if 0
+static void __init exynos4_reserve_mem(void)
 {
-	struct clk *clk_parent;
-	struct clk *sclk;
+	static struct cma_region regions[] = {
 
-	sclk = clk_get(dev, clock);
-	if (IS_ERR(sclk)) {
-		pr_err("Unable to get clock:%s.\n", clock);
-		return PTR_ERR(sclk);
-	}
+		{
+			.name = "jpeg",
+			.size = CONFIG_VIDEO_SAMSUNG_MEMSIZE_JPEG * SZ_1K,
+			.start = 0
+		},
+		{
+			.name = "srp",
+			.size = CONFIG_AUDIO_SAMSUNG_MEMSIZE_SRP * SZ_1K,
+			.start = 0,
+		},
+		{
+			.name = "fimg2d",
+			.size = CONFIG_VIDEO_SAMSUNG_MEMSIZE_FIMG2D * SZ_1K,
+			.start = 0
+		},
+		{
+			.name = "fimd",
+			.size = CONFIG_VIDEO_SAMSUNG_MEMSIZE_FIMD * SZ_1K,
+			.start = 0
+		},
+		{
+			.name = "fimc0",
+			.size = CONFIG_VIDEO_SAMSUNG_MEMSIZE_FIMC0 * SZ_1K,
+			.start = 0
+		},
+		{
+			.name = "fimc2",
+			.size = CONFIG_VIDEO_SAMSUNG_MEMSIZE_FIMC2 * SZ_1K,
+			.start = 0
+		},
+		{
+			.name = "fimc3",
+			.size = CONFIG_VIDEO_SAMSUNG_MEMSIZE_FIMC3 * SZ_1K,
+		},
+		{
+			.name = "fimc1",
+			.size = CONFIG_VIDEO_SAMSUNG_MEMSIZE_FIMC1 * SZ_1K,
+			.start = 0
+		},
+		{
+			.name = "mfc1",
+			.size = CONFIG_VIDEO_SAMSUNG_MEMSIZE_MFC1 * SZ_1K,
+			{ .alignment = 1 << 17 },
+		},
+		{
+			.name = "mfc0",
+			.size = CONFIG_VIDEO_SAMSUNG_MEMSIZE_MFC0 * SZ_1K,
+			{ .alignment = 1 << 17 },
+		},
 
-	clk_parent = clk_get(NULL, parent);
-	if (IS_ERR(clk_parent)) {
-		clk_put(sclk);
-		pr_err("Unable to get parent clock:%s of clock:%s.\n",
-				parent, sclk->name);
-		return PTR_ERR(clk_parent);
-	}
+		{
+			.size = 0
+		},
+	};
+	struct cma_region *regions_secure = NULL;
 
-	if (clk_set_parent(sclk, clk_parent)) {
-		pr_err("Unable to set parent %s of clock %s.\n", parent, clock);
-		clk_put(sclk);
-		clk_put(clk_parent);
-		return PTR_ERR(sclk);
-	}
+	static const char map[] __initconst =
+		"s3cfb.0/fimd=fimd;exynos4-fb.0/fimd=fimd;"
+		"s3c-fimc.0=fimc0;s3c-fimc.1=fimc1;s3c-fimc.2=fimc2;s3c-fimc.3=fimc3;"
+		"exynos4210-fimc.0=fimc0;exynos4210-fimc.1=fimc1;exynos4210-fimc.2=fimc2;exynos4210-fimc.3=fimc3;"
+		"s3c-mfc/A=mfc0,mfc-secure;"
+		"s3c-mfc/B=mfc1,mfc-normal;"
+		"s3c-mfc/AB=mfc;"
+		"samsung-rp=srp;"
+		"s5p-jpeg=jpeg;"
+		"exynos4-fimc-is/f=fimc_is;"
+		"s5p-mixer=tv;"
+		"s5p-fimg2d=fimg2d;"
+		"ion-exynos=ion,fimd,fimc0,fimc1,fimc2,fimc3,fw,b1,b2;"
+		"s5p-smem/mfc=mfc0,mfc-secure;"
+		"s5p-smem/fimc=fimc3;"
+		"s5p-smem/mfc-shm=mfc1,mfc-normal;"
+		"s5p-smem/fimd=fimd;";
 
-	if (clk_rate)
-		if (clk_set_rate(sclk, clk_rate)) {
-			pr_err("%s rate change failed: %lu\n", sclk->name,
-				clk_rate);
-			clk_put(sclk);
-			clk_put(clk_parent);
-			return PTR_ERR(sclk);
-		}
+	s5p_cma_region_reserve(regions, regions_secure, 0, map);
+}
+#endif
+/* LCD Backlight data */
+static struct samsung_bl_gpio_info smdk4x12_bl_gpio_info = {
+	.no = EXYNOS4_GPD0(1),
+	.func = S3C_GPIO_SFN(2),
+};
 
-	clk_put(sclk);
-	clk_put(clk_parent);
+static struct platform_pwm_backlight_data smdk4x12_bl_data = {
+	.pwm_id = 1,
+	.pwm_period_ns  = 78770,
+	.max_brightness = 255,
+	.dft_brightness = 128,//128,
+};
 
-	return 0;
+static void __init smdk4x12_map_io(void)
+{
+	clk_xusbxti.rate = 24000000;
+	exynos_init_io(NULL, 0);
+	s3c24xx_init_clocks(24000000);
+	s3c24xx_init_uarts(smdk4x12_uartcfgs, ARRAY_SIZE(smdk4x12_uartcfgs));
+
+	//exynos4_reserve_mem();
+}
+static void __init smdk4x12_reserve(void)
+{
+	// HACK: This reserved memory will be used for FIMC-IS
+	s5p_mfc_reserve_mem(0x58000000, 32<< 20, 0x43000000, 0 << 20);
 }
 
-static void initialize_prime_clocks(void)
+
+static void __init exynos_sysmmu_init(void)
 {
-	exynos4_setup_clock(&s5p_device_fimd0.dev, "sclk_fimd",
-                                        "mout_mpll_user", 176 * MHZ);
+#ifdef CONFIG_EXYNOS_DEV_PD
+	ASSIGN_SYSMMU_POWERDOMAIN(fimc0, &exynos4_device_pd[PD_CAM].dev);
+	ASSIGN_SYSMMU_POWERDOMAIN(fimc1, &exynos4_device_pd[PD_CAM].dev);
+	ASSIGN_SYSMMU_POWERDOMAIN(fimc2, &exynos4_device_pd[PD_CAM].dev);
+	ASSIGN_SYSMMU_POWERDOMAIN(fimc3, &exynos4_device_pd[PD_CAM].dev);
+	ASSIGN_SYSMMU_POWERDOMAIN(jpeg, &exynos4_device_pd[PD_CAM].dev);
+	ASSIGN_SYSMMU_POWERDOMAIN(mfc_l, &exynos4_device_pd[PD_MFC].dev);
+	ASSIGN_SYSMMU_POWERDOMAIN(mfc_r, &exynos4_device_pd[PD_MFC].dev);
+	ASSIGN_SYSMMU_POWERDOMAIN(tv, &exynos4_device_pd[PD_TV].dev);
 
-	exynos4_setup_clock(&s5p_device_fimc0.dev, "sclk_fimc",
-					"mout_mpll_user", 176 * MHZ);
-	exynos4_setup_clock(&s5p_device_fimc1.dev, "sclk_fimc",
-					"mout_mpll_user", 176 * MHZ);
-	exynos4_setup_clock(&s5p_device_fimc2.dev, "sclk_fimc",
-					"mout_mpll_user", 176 * MHZ);
-	exynos4_setup_clock(&s5p_device_fimc3.dev, "sclk_fimc",
-					"mout_mpll_user", 176 * MHZ);
-
-	exynos4_setup_clock(&s5p_device_mipi_csis0.dev, "sclk_csis",
-					"mout_mpll_user", 176 * MHZ);
-	exynos4_setup_clock(&s5p_device_mipi_csis0.dev, "sclk_csis",
-					"mout_mpll_user", 176 * MHZ);
-
-	exynos4_setup_clock(NULL, "mout_mfc0", "mout_mpll", 0);
-	exynos4_setup_clock(&s5p_device_mfc.dev, "sclk_mfc",
-					"mout_mfc0", 220 * MHZ);
-
-	exynos4_setup_clock(NULL, "mout_jpeg0", "mout_mpll", 0);
-	exynos4_setup_clock(&s5p_device_mfc.dev, "sclk_jpeg",
-					"mout_jpeg0", 176 * MHZ);
-
-	exynos4_setup_clock(&s3c_device_hsmmc2.dev, "dout_mmc2",
-					"mout_mpll_user", 100 * MHZ);
-#ifdef CONFIG_SND_SAMSUNG_I2S_MASTER
-	exynos4_setup_clock(&exynos_device_dwmci.dev, "dout_mmc4",
-					"mout_epll", 400 * MHZ);
-#else
-#ifdef CONFIG_EXYNOS4_DEV_DWMCI
-	exynos4_setup_clock(&exynos_device_dwmci.dev, "dout_mmc4",
-					"mout_mpll_user", 440 * MHZ);
-#endif
+	sysmmu_set_owner(&SYSMMU_PLATDEV(g2d_acp).dev, &s5p_device_fimg2d.dev);
+	sysmmu_set_owner(&SYSMMU_PLATDEV(mfc_l).dev, &s5p_device_mfc.dev);
+	sysmmu_set_owner(&SYSMMU_PLATDEV(mfc_r).dev, &s5p_device_mfc.dev);
+	sysmmu_set_owner(&SYSMMU_PLATDEV(fimc0).dev, &s3c_device_fimc0.dev);
+	sysmmu_set_owner(&SYSMMU_PLATDEV(fimc1).dev, &s3c_device_fimc1.dev);
+	sysmmu_set_owner(&SYSMMU_PLATDEV(fimc2).dev, &s3c_device_fimc2.dev);
+	sysmmu_set_owner(&SYSMMU_PLATDEV(fimc3).dev, &s3c_device_fimc3.dev);
+	sysmmu_set_owner(&SYSMMU_PLATDEV(tv).dev, &s5p_device_tvout.dev);
+	sysmmu_set_owner(&SYSMMU_PLATDEV(jpeg).dev, &s5p_device_jpeg.dev);
 #endif
 }
+#define ETC6PUD		(S5P_VA_GPIO2 + 0x228)
+#define SMDK4412_REV_0_0_ADC_VALUE 0
+#define SMDK4412_REV_0_1_ADC_VALUE 443
+#define S5P_ADCCON_SELMUX(x) (((x)&0xF)<<0)
+int samsung_board_rev;
 
-static void initialize_non_prime_clocks(void)
+static int get_samsung_board_rev(void)
 {
-	exynos4_setup_clock(&s5p_device_fimd0.dev, "sclk_fimd",
-                                        "mout_mpll_user", 800 * MHZ);
+	int 		adc_val = 0;
+	struct clk	*adc_clk;
+	struct resource	*res;
+	void __iomem	*adc_regs;
+	unsigned int	con;
+	int		ret;
 
-	exynos4_setup_clock(&s5p_device_fimc0.dev, "sclk_fimc",
-					"mout_mpll_user", 160 * MHZ);
-	exynos4_setup_clock(&s5p_device_fimc1.dev, "sclk_fimc",
-					"mout_mpll_user", 160 * MHZ);
-	exynos4_setup_clock(&s5p_device_fimc2.dev, "sclk_fimc",
-					"mout_mpll_user", 160 * MHZ);
-	exynos4_setup_clock(&s5p_device_fimc3.dev, "sclk_fimc",
-					"mout_mpll_user", 160 * MHZ);
+	writel((__raw_readl(ETC6PUD) & ~(0x3 << 6)) | (0x3 << 6),
+		ETC6PUD);
 
-	exynos4_setup_clock(&s5p_device_mipi_csis0.dev, "sclk_csis",
-					"mout_mpll_user", 160 * MHZ);
-	exynos4_setup_clock(&s5p_device_mipi_csis0.dev, "sclk_csis",
-					"mout_mpll_user", 160 * MHZ);
+	if ((soc_is_exynos4412() && samsung_rev() < EXYNOS4412_REV_1_0) ||
+		(soc_is_exynos4212() && samsung_rev() < EXYNOS4412_REV_1_0))
+		return EXYNOS4412_REV_0;
 
-	exynos4_setup_clock(NULL, "mout_mfc0", "mout_mpll", 0);
-	exynos4_setup_clock(&s5p_device_mfc.dev, "sclk_mfc",
-					"mout_mfc0", 200 * MHZ);
+	adc_clk = clk_get(NULL, "adc");
+	if (unlikely(IS_ERR(adc_clk)))
+		return EXYNOS4412_REV_0;
 
-	exynos4_setup_clock(NULL, "mout_jpeg0", "mout_mpll", 0);
-	exynos4_setup_clock(&s5p_device_mfc.dev, "sclk_jpeg",
-					"mout_jpeg0", 160 * MHZ);
+	clk_enable(adc_clk);
 
-	exynos4_setup_clock(&s3c_device_hsmmc2.dev, "dout_mmc2",
-					"mout_mpll_user", 100 * MHZ);
-#ifdef CONFIG_EXYNOS4_DEV_DWMCI
-	exynos4_setup_clock(&exynos_device_dwmci.dev, "dout_mmc4",
-					"mout_mpll_user", 400 * MHZ);
-#endif
+	res = platform_get_resource(&s3c_device_adc, IORESOURCE_MEM, 0);
+	if (unlikely(!res))
+		goto err_clk;
+
+	adc_regs = ioremap(res->start, resource_size(res));
+	if (unlikely(!adc_regs))
+		goto err_clk;
+
+	writel(S5P_ADCCON_SELMUX(3), adc_regs + S5P_ADCMUX);
+
+	con = readl(adc_regs + S3C2410_ADCCON);
+	con &= ~S3C2410_ADCCON_MUXMASK;
+	con &= ~S3C2410_ADCCON_STDBM;
+	con &= ~S3C2410_ADCCON_STARTMASK;
+	con |=  S3C2410_ADCCON_PRSCEN;
+
+	con |= S3C2410_ADCCON_ENABLE_START;
+	writel(con, adc_regs + S3C2410_ADCCON);
+
+	udelay (50);
+
+	adc_val = readl(adc_regs + S3C2410_ADCDAT0) & 0xFFF;
+	writel(0, adc_regs + S3C64XX_ADCCLRINT);
+
+	iounmap(adc_regs);
+err_clk:
+	clk_disable(adc_clk);
+	clk_put(adc_clk);
+
+	ret = (adc_val < SMDK4412_REV_0_1_ADC_VALUE/2) ?
+			EXYNOS4412_REV_0 : EXYNOS4412_REV_0_1;
+
+	pr_info ("SMDK MAIN Board Rev 0.%d (ADC value:%d)\n", ret, adc_val);
+	return EXYNOS4412_REV_0_1;
 }
+
+//  off part GPIO Sleep Control table
+//  {pin number,      sleep mode conf,    sleep pullup/down config}
+static unsigned int sleep_off_gpio_table[][3] =
+{
+    {EXYNOS4X12_GPM1(5), S3C_GPIO_SLP_INPUT,  S3C_GPIO_PULL_DOWN},  //LCD_BIST
+
+    {EXYNOS4X12_GPM3(2), S3C_GPIO_SLP_INPUT,  S3C_GPIO_PULL_DOWN},  //HUB_RST
+    {EXYNOS4X12_GPM3(3), S3C_GPIO_SLP_INPUT,  S3C_GPIO_PULL_DOWN},  //HUB_CONNECT
+
+    {EXYNOS4X12_GPM4(1), S3C_GPIO_SLP_OUT0,  S3C_GPIO_PULL_NONE},  //LCD_BIST
+
+    {EXYNOS4_GPD0(1), S3C_GPIO_SLP_OUT0,  S3C_GPIO_PULL_NONE},  //LCD_PWM
+
+    //rfid uart1
+    {EXYNOS4_GPA0(4), S3C_GPIO_SLP_INPUT,  S3C_GPIO_PULL_DOWN},  //RFID_RXD
+    {EXYNOS4_GPA0(5), S3C_GPIO_SLP_OUT0,  S3C_GPIO_PULL_NONE},  //RFID_TXD
+
+    //debug uart2
+    {EXYNOS4_GPA1(0), S3C_GPIO_SLP_INPUT,  S3C_GPIO_PULL_DOWN},  //Debug_RX
+    {EXYNOS4_GPA1(1), S3C_GPIO_SLP_OUT0,  S3C_GPIO_PULL_NONE},  //Debug_TX
+
+    //gps uart3
+    {EXYNOS4_GPA1(4), S3C_GPIO_SLP_INPUT,  S3C_GPIO_PULL_DOWN},  //GPS_RXD
+    {EXYNOS4_GPA1(5), S3C_GPIO_SLP_OUT0,  S3C_GPIO_PULL_NONE},  //GPS_TXD
+
+    //i2c_0
+    {EXYNOS4_GPD1(0), S3C_GPIO_SLP_INPUT,  S3C_GPIO_PULL_DOWN},  //I2C_SDA0
+    {EXYNOS4_GPD1(1), S3C_GPIO_SLP_INPUT,  S3C_GPIO_PULL_DOWN},  //I2C_SCL0
+
+    //i2c_1
+    {EXYNOS4_GPD1(1), S3C_GPIO_SLP_INPUT,  S3C_GPIO_PULL_DOWN},  //I2C_SDA_PMU
+    {EXYNOS4_GPD1(2), S3C_GPIO_SLP_INPUT,  S3C_GPIO_PULL_DOWN},  //I2C_SCL_PMU
+
+    //i2c_2
+    {EXYNOS4_GPA0(6), S3C_GPIO_SLP_INPUT,  S3C_GPIO_PULL_DOWN},  //I2C_SDA2
+    {EXYNOS4_GPA0(7), S3C_GPIO_SLP_INPUT,  S3C_GPIO_PULL_DOWN},  //I2C_SCL2
+
+    //i2c_3
+    {EXYNOS4_GPA1(2), S3C_GPIO_SLP_INPUT,  S3C_GPIO_PULL_DOWN},  //I2C_SDA3
+    {EXYNOS4_GPA1(3), S3C_GPIO_SLP_INPUT,  S3C_GPIO_PULL_DOWN},  //I2C_SCL3
+
+    //i2c_4
+    {EXYNOS4_GPB(0), S3C_GPIO_SLP_INPUT,  S3C_GPIO_PULL_DOWN},  //I2C_SDA4
+    {EXYNOS4_GPB(1), S3C_GPIO_SLP_INPUT,  S3C_GPIO_PULL_DOWN},  //I2C_SCL4
+
+    //i2c_5
+    {EXYNOS4_GPB(2), S3C_GPIO_SLP_INPUT,  S3C_GPIO_PULL_DOWN},  //I2C_SDA5
+    {EXYNOS4_GPB(3), S3C_GPIO_SLP_INPUT,  S3C_GPIO_PULL_DOWN},  //I2C_SCL5
+
+    //i2c_6
+    //{EXYNOS4_GPB(2), S3C_GPIO_SLP_INPUT,  S3C_GPIO_PULL_DOWN},  //I2C_SDA5
+    //{EXYNOS4_GPB(3), S3C_GPIO_SLP_INPUT,  S3C_GPIO_PULL_DOWN},  //I2C_SCL5
+
+    //i2c_7
+    {EXYNOS4_GPD0(2), S3C_GPIO_SLP_INPUT,  S3C_GPIO_PULL_DOWN},  //I2C_SDA5
+    {EXYNOS4_GPD0(3), S3C_GPIO_SLP_INPUT,  S3C_GPIO_PULL_DOWN},  //I2C_SCL5
+
+};
+
+//  alive part GPIO Sleep Control table
+//  {pin number,      sleep mode conf, sleep pin value,      sleep pullup/down config}
+static unsigned int sleep_alive_gpio_table[][4] =
+{
+    {EXYNOS4_GPX2(3), S3C_GPIO_INPUT,   S3C_GPIO_SETPIN_NONE, S3C_GPIO_PULL_DOWN}, //pwr hold
+    {EXYNOS4_GPX3(5), S3C_GPIO_INPUT,   S3C_GPIO_SETPIN_NONE, S3C_GPIO_PULL_DOWN}, //pwr hold
+
+    {EXYNOS4_GPX1(3), S3C_GPIO_INPUT,   S3C_GPIO_SETPIN_NONE, S3C_GPIO_PULL_DOWN}, //LIGHT_INT，光感接近中断
+    {EXYNOS4_GPX1(5), S3C_GPIO_INPUT,   S3C_GPIO_SETPIN_NONE, S3C_GPIO_PULL_DOWN}, //RFID_ICC，rfid刷卡中断
+    {EXYNOS4_GPX1(5), S3C_GPIO_INPUT,   S3C_GPIO_SETPIN_NONE, S3C_GPIO_PULL_DOWN}, //RFID_ICC，rfid刷卡中断
+};
+
+//to config the off part gpio to sleep mode
+extern int s3c_gpio_slp_cfgpin(unsigned int pin, unsigned int config);
+extern int s3c_gpio_slp_setpull_updown(unsigned int pin, unsigned int config);
+static void config_sleep_off_gpio_table(int array_size, unsigned int (*gpio_table)[3])
+{
+    u32 i, gpio;
+
+    for (i = 0; i < array_size; i++) {
+        gpio = gpio_table[i][0];
+        s3c_gpio_slp_cfgpin(gpio, gpio_table[i][1]);
+        s3c_gpio_slp_setpull_updown(gpio, gpio_table[i][2]);
+    }    
+}
+
+//to config the alive part gpio(gpx0 - gpx3)
+static void config_gpio_table(int array_size, unsigned int (*gpio_table)[4])
+{
+    u32 i, gpio;
+        
+    for (i = 0; i < array_size; i++) {
+        gpio = gpio_table[i][0];
+        s3c_gpio_cfgpin(gpio, S3C_GPIO_SFN(gpio_table[i][1]));
+        if (gpio_table[i][2] != S3C_GPIO_SETPIN_NONE)
+            gpio_set_value(gpio, gpio_table[i][2]);
+        s3c_gpio_setpull(gpio, gpio_table[i][3]);
+    }
+} 
+
+void exynos4_sleep_gpio_table_set(void)
+{
+    //alive part gpio in sleep mode
+    config_gpio_table(ARRAY_SIZE(sleep_alive_gpio_table), sleep_alive_gpio_table);
+
+    //off part gpio in sleep mode
+    config_sleep_off_gpio_table(ARRAY_SIZE(sleep_off_gpio_table), sleep_off_gpio_table);
+
+    return;
+}
+
 
 static void __init smdk4x12_machine_init(void)
 {
-	exynos_bootdev_init();
-	tiny4412_hwrev_init();
 
-#ifdef CONFIG_S3C64XX_DEV_SPI0
-	spi_register_board_info(spi0_board_info, ARRAY_SIZE(spi0_board_info));
+	pm_power_off = axp229_power_off;
+	samsung_board_rev = get_samsung_board_rev();
+#ifdef CONFIG_EXYNOS_DEV_PD
+	exynos_pd_disable(&exynos4_device_pd[PD_MFC].dev);
+	exynos_pd_disable(&exynos4_device_pd[PD_G3D].dev);
+	exynos_pd_disable(&exynos4_device_pd[PD_LCD0].dev);
+	exynos_pd_disable(&exynos4_device_pd[PD_CAM].dev);
+	exynos_pd_disable(&exynos4_device_pd[PD_TV].dev);
+	exynos_pd_disable(&exynos4_device_pd[PD_GPS].dev);
+	exynos_pd_disable(&exynos4_device_pd[PD_GPS_ALIVE].dev);
+	exynos_pd_disable(&exynos4_device_pd[PD_ISP].dev);
 #endif
-#ifdef CONFIG_S3C64XX_DEV_SPI1
-	spi_register_board_info(spi1_board_info, ARRAY_SIZE(spi1_board_info));
-#endif
-#ifdef CONFIG_S3C64XX_DEV_SPI2
-	spi_register_board_info(spi2_board_info, ARRAY_SIZE(spi2_board_info));
-#endif
+	s3c_i2c0_set_platdata(NULL);
 
-	if (samsung_pack() != EXYNOS4412_PACK_SCP) {
-#ifdef CONFIG_REGULATOR_MAX77686
-		max77686_populate_pdata();
-#endif
-	}
-#if defined(CONFIG_SAMSUNG_DEV_ADC)
-	s3c_adc_set_platdata(NULL);
-	s3c_adc_setname("samsung-adc-v4");
-#endif
-	s3c_i2c0_set_platdata(&tiny4412_i2c0_data);
-	i2c_register_board_info(0, smdk4x12_i2c_devs0,
-			ARRAY_SIZE(smdk4x12_i2c_devs0));
+	i2c_register_board_info(0, i2c_devs0, ARRAY_SIZE(i2c_devs0));
 
-	s3c_i2c1_set_platdata(&tiny4412_i2c1_data);
-	i2c_register_board_info(1, smdk4x12_i2c_devs1,
-			ARRAY_SIZE(smdk4x12_i2c_devs1));
+	s3c_i2c1_set_platdata(NULL);
+	i2c_register_board_info(1, i2c_devs1, ARRAY_SIZE(i2c_devs1));
 
 	s3c_i2c2_set_platdata(NULL);
-	i2c_register_board_info(2, smdk4x12_i2c_devs2,
-			ARRAY_SIZE(smdk4x12_i2c_devs2));
+	i2c_register_board_info(2, i2c_devs2, ARRAY_SIZE(i2c_devs2));
 
-	s3c_i2c3_set_platdata(&tiny4412_i2c3_data);
-	i2c_register_board_info(3, smdk4x12_i2c_devs3,
-			ARRAY_SIZE(smdk4x12_i2c_devs3));
+	s3c_i2c3_set_platdata(NULL);
+	i2c_register_board_info(3, i2c_devs3, ARRAY_SIZE(i2c_devs3));
 
 	s3c_i2c4_set_platdata(NULL);
-
+	i2c_register_board_info(4, i2c_devs4, ARRAY_SIZE(i2c_devs4));
 	s3c_i2c5_set_platdata(NULL);
-	i2c_register_board_info(5, smdk4x12_i2c_devs5,
-			ARRAY_SIZE(smdk4x12_i2c_devs5));
+	i2c_register_board_info(5, i2c_devs5, ARRAY_SIZE(i2c_devs5));
 
-	smdk4x12_rtc_wake_init();
-	smdk4x12_pmu_wdt_init();
-	smdk4x12_touch_init();
+	s3c_i2c7_set_platdata(NULL);
+	i2c_register_board_info(7, i2c_devs7, ARRAY_SIZE(i2c_devs7));
 
-	if (is_board_rev_B()) {
-#ifdef CONFIG_INPUT_GPIO
-		tiny4412_key_info_fixup();
-#endif
-	} else {
-		tiny4412_wifi_init();
-	}
+	//s3cfb_set_platdata(NULL);
 
-	s3c_i2c7_set_platdata(&tiny4412_i2c7_data);
-	i2c_register_board_info(7, smdk4x12_i2c_devs7,
-			ARRAY_SIZE(smdk4x12_i2c_devs7));
-
-	s3c_hsotg_set_platdata(&smdk4x12_hsotg_pdata);
-#ifdef CONFIG_USB_EXYNOS_SWITCH
+	//s3c_device_fb.dev.parent = &exynos4_device_pd[PD_LCD0].dev;
+	smdk4x12_ehci_init();
+	smdk4x12_ohci_init();
+	//smdk4x12_usbgadget_init();
 	smdk4x12_usbswitch_init();
-#endif
+
 	samsung_bl_set(&smdk4x12_bl_gpio_info, &smdk4x12_bl_data);
 
-	tiny4412_fb_init_pdata(&smdk4x12_lcd0_pdata);
-	s5p_fimd0_set_platdata(&smdk4x12_lcd0_pdata);
-#ifdef CONFIG_LCD_LMS501KF03
-	spi_register_board_info(spi_board_info, ARRAY_SIZE(spi_board_info));
-#endif
-
-#ifdef CONFIG_SAMSUNG_DEV_KEYPAD
-	samsung_keypad_set_platdata(&smdk4x12_keypad_data);
-#endif
-
-#ifdef CONFIG_EXYNOS4_DEV_DWMCI
 	exynos_dwmci_set_platdata(&exynos_dwmci_pdata);
-#endif
 
 	s3c_sdhci2_set_platdata(&smdk4x12_hsmmc2_pdata);
+
 	s3c_sdhci3_set_platdata(&smdk4x12_hsmmc3_pdata);
 
-#ifdef CONFIG_ION_EXYNOS
-	exynos_ion_set_platdata();
-#endif
-	s5p_tv_setup();
-	s5p_i2c_hdmiphy_set_platdata(NULL);
-	s5p_hdmi_set_platdata(smdk4x12_i2c_hdmiphy, NULL, 0);
 
-#ifdef CONFIG_VIDEO_EXYNOS_FIMG2D
+	//exynos_tmu_set_platdata(&exynos_tmu_data);
+
+	//s3c_fimc0_set_platdata(&fimc_plat);
+	//s3c_fimc1_set_platdata(&fimc_plat);
+	//s3c_fimc2_set_platdata(&fimc_plat);
+	//s3c_fimc3_set_platdata(NULL);
+#ifdef CONFIG_EXYNOS_DEV_PD
+	s3c_device_fimc0.dev.parent = &exynos4_device_pd[PD_CAM].dev;
+	s3c_device_fimc1.dev.parent = &exynos4_device_pd[PD_CAM].dev;
+	s3c_device_fimc2.dev.parent = &exynos4_device_pd[PD_CAM].dev;
+	s3c_device_fimc3.dev.parent = &exynos4_device_pd[PD_CAM].dev;
+
+
+	s5p_hdmi_hpd_set_platdata(&hdmi_hpd_data);
+	s5p_hdmi_cec_set_platdata(&hdmi_cec_data);
+	s5p_device_tvout.dev.parent = &exynos4_device_pd[PD_TV].dev;
+	exynos4_device_pd[PD_TV].dev.parent = &exynos4_device_pd[PD_LCD0].dev;
+
+	s5p_device_jpeg.dev.parent = &exynos4_device_pd[PD_CAM].dev;
+	if (samsung_rev() == EXYNOS4412_REV_2_0)
+		exynos4_jpeg_setup_clock(&s5p_device_jpeg.dev, 176000000);
+	else
+		exynos4_jpeg_setup_clock(&s5p_device_jpeg.dev, 160000000);
+
+	s5p_device_mfc.dev.parent = &exynos4_device_pd[PD_MFC].dev;
+	if (soc_is_exynos4412() && samsung_rev() >= EXYNOS4412_REV_2_0)
+		exynos4_mfc_setup_clock(&s5p_device_mfc.dev, 220 * MHZ);
+	else if ((soc_is_exynos4412() && samsung_rev() >= EXYNOS4412_REV_1_0))
+		exynos4_mfc_setup_clock(&s5p_device_mfc.dev, 200 * MHZ);
+	else
+		exynos4_mfc_setup_clock(&s5p_device_mfc.dev, 267 * MHZ);
+#endif
 	s5p_fimg2d_set_platdata(&fimg2d_data);
-#endif
-#if defined(CONFIG_VIDEO_UTCAMERA)
-	smdk4x12_camera_init();
-#endif
-#ifdef CONFIG_VIDEO_EXYNOS_FIMC_LITE
-	smdk4x12_set_camera_flite_platdata();
-	s3c_set_platdata(&exynos_flite0_default_data,
-			sizeof(exynos_flite0_default_data), &exynos_device_flite0);
-	s3c_set_platdata(&exynos_flite1_default_data,
-			sizeof(exynos_flite1_default_data), &exynos_device_flite1);
-#endif
-	smdk4x12_ehci_init();
 
-#ifdef CONFIG_S3C64XX_DEV_SPI0
-	s3c64xx_spi0_set_platdata(NULL, 0, 1);
-#endif
-#ifdef CONFIG_S3C64XX_DEV_SPI1
-	s3c64xx_spi1_set_platdata(NULL, 0, 1);
-#endif
-#ifdef CONFIG_S3C64XX_DEV_SPI2
-	s3c64xx_spi2_set_platdata(NULL, 0, 1);
-#endif
+	exynos_sysmmu_init();
 
-	smdk4x12_ohci_init();
 	platform_add_devices(smdk4x12_devices, ARRAY_SIZE(smdk4x12_devices));
-	if (!uhost0)
-		platform_device_register(&s3c_device_usb_hsotg);
+	if (soc_is_exynos4412())
+		platform_add_devices(smdk4412_devices, ARRAY_SIZE(smdk4412_devices));
 
-#ifdef CONFIG_VIDEO_EXYNOS_FIMC_IS
-	exynos4_fimc_is_set_platdata(NULL);
-#endif
+	register_reboot_notifier(&exynos4_reboot_notifier);
+   	//开启audio的电源
+    	gpio_request(EXYNOS4X12_GPM2(1), "GPM2_1");
+	s3c_gpio_setpull(EXYNOS4X12_GPM2(1), S3C_GPIO_PULL_UP);
+	s3c_gpio_slp_setpull_updown(EXYNOS4X12_GPM2(1), S3C_GPIO_PULL_UP);
+	s3c_gpio_slp_cfgpin(EXYNOS4X12_GPM2(1), S3C_GPIO_SLP_OUT0);
+    	gpio_direction_output(EXYNOS4X12_GPM2(1), 1);
+    	gpio_free(EXYNOS4X12_GPM2(1));
+	gpio_request(EXYNOS4_GPX0(0), "GPX0");
+	gpio_direction_output(EXYNOS4_GPX0(0), 1);
+	gpio_free(EXYNOS4_GPX0(0));
 
-	if (soc_is_exynos4412()) {
-		if ((samsung_rev() >= EXYNOS4412_REV_2_0))
-			initialize_prime_clocks();
-		else
-			initialize_non_prime_clocks();
+    	//复位usb phy
+    	gpio_request(GPIO_HUB_RESET, "GPIO_HUB_RESET");
+   	gpio_direction_output(GPIO_HUB_RESET, 1);
+    	s3c_gpio_setpull(GPIO_HUB_RESET, S3C_GPIO_PULL_NONE);
+    	gpio_free(GPIO_HUB_RESET);
 
-#ifdef CONFIG_S3C64XX_DEV_SPI0
-		exynos4_setup_clock(&s3c64xx_device_spi0.dev, "mdout_spi",
-				"mout_mpll_user", 50 * MHZ);
-#endif
-	}
-#ifdef CONFIG_BUSFREQ_OPP
-	dev_add(&busfreq, &exynos4_busfreq.dev);
-	ppmu_init(&exynos_ppmu[PPMU_DMC0], &exynos4_busfreq.dev);
-	ppmu_init(&exynos_ppmu[PPMU_DMC1], &exynos4_busfreq.dev);
-	ppmu_init(&exynos_ppmu[PPMU_CPU], &exynos4_busfreq.dev);
-#endif
-	set_tmu_platdata();
+    	gpio_request(GPIO_HUB_CONNECT, "GPIO_HUB_CONNECT");
+    	gpio_direction_output(GPIO_HUB_CONNECT, 1);
+    	s3c_gpio_setpull(GPIO_HUB_CONNECT, S3C_GPIO_PULL_NONE);
+    	gpio_free(GPIO_HUB_CONNECT);
+
+    	//开启USB PHY的电源
+    	gpio_request_one(EXYNOS4X12_GPM2(0),GPIOF_OUT_INIT_LOW, "GPM2");
+    	gpio_set_value(EXYNOS4X12_GPM2(0), 1);
+    	gpio_free(EXYNOS4X12_GPM2(0));
+        //开启audio codec的电源
+        gpio_request(EXYNOS4_GPX1(4), "GPX1");
+        gpio_direction_output(EXYNOS4_GPX1(4), 1);
+        gpio_free(EXYNOS4_GPX1(4));
+        gpio_request(EXYNOS4_GPX0(6), "GPX0");
+        gpio_direction_output(EXYNOS4_GPX0(6), 1);
+        gpio_free(EXYNOS4_GPX0(6));
+
 }
 
 MACHINE_START(SMDK4412, "SMDK4412")
-	.atag_offset	= S5P_PA_SDRAM + 0x100,
+	/* Maintainer: Kukjin Kim <kgene.kim@samsung.com> */
+	/* Maintainer: Changhwan Youn <chaos.youn@samsung.com> */
+	.atag_offset	= 0x100,
 	.init_irq	= exynos4_init_irq,
 	.map_io		= smdk4x12_map_io,
 	.handle_irq	= gic_handle_irq,
@@ -2343,4 +1162,3 @@ MACHINE_START(SMDK4412, "SMDK4412")
 	.restart	= exynos4_restart,
 	.reserve	= &smdk4x12_reserve,
 MACHINE_END
-
