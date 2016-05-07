@@ -14,8 +14,6 @@
 #include <linux/input.h>
 #include <linux/io.h>
 #include <linux/lcd.h>
-#include <linux/mfd/max8997.h>
-#include <linux/mfd/max77686.h>
 #include <linux/mmc/host.h>
 #include <linux/platform_device.h>
 #include <linux/pwm_backlight.h>
@@ -88,6 +86,10 @@
 #include <media/ut2055_platform.h>
 #endif
 
+#define GPIO_HUB_RESET EXYNOS4X12_GPM3(2)
+#define GPIO_HUB_CONNECT EXYNOS4_GPX0(2)
+#define GPIO_HUB_INT EXYNOS4_GPX2(3)
+
 /* Following are default values for UCON, ULCON and UFCON UART registers */
 #define SMDK4X12_UCON_DEFAULT	(S3C2410_UCON_TXILEVEL |	\
 				 S3C2410_UCON_RXILEVEL |	\
@@ -101,7 +103,9 @@
 #define SMDK4X12_UFCON_DEFAULT	(S3C2410_UFCON_FIFOMODE |	\
 				 S5PV210_UFCON_TXTRIG4 |	\
 				 S5PV210_UFCON_RXTRIG4)
-
+//to config the off part gpio to sleep mode
+extern int s3c_gpio_slp_cfgpin(unsigned int pin, unsigned int config);
+extern int s3c_gpio_slp_setpull_updown(unsigned int pin, unsigned int config);
 static struct s3c2410_uartcfg smdk4x12_uartcfgs[] __initdata = {
 	[0] = {
 		.hwport		= 0,
@@ -141,670 +145,6 @@ static struct s3c_sdhci_platdata smdk4x12_hsmmc3_pdata __initdata = {
 	.cd_type		= S3C_SDHCI_CD_PERMANENT,
 };
 
-static struct regulator_consumer_supply max8997_buck1 =
-	REGULATOR_SUPPLY("vdd_arm", NULL);
-
-static struct regulator_consumer_supply max8997_buck2 =
-	REGULATOR_SUPPLY("vdd_int", NULL);
-
-static struct regulator_consumer_supply max8997_buck3 =
-	REGULATOR_SUPPLY("vdd_g3d", NULL);
-
-static struct regulator_init_data max8997_buck1_data = {
-	.constraints	= {
-		.name		= "VDD_ARM_SMDK4X12",
-		.min_uV		= 925000,
-		.max_uV		= 1350000,
-		.always_on	= 1,
-		.valid_ops_mask	= REGULATOR_CHANGE_VOLTAGE,
-		.state_mem	= {
-			.disabled	= 1,
-		},
-	},
-	.num_consumer_supplies	= 1,
-	.consumer_supplies	= &max8997_buck1,
-};
-
-static struct regulator_init_data max8997_buck2_data = {
-	.constraints	= {
-		.name		= "VDD_INT_SMDK4X12",
-		.min_uV		= 950000,
-		.max_uV		= 1150000,
-		.always_on	= 1,
-		.valid_ops_mask	= REGULATOR_CHANGE_VOLTAGE,
-		.state_mem	= {
-			.disabled	= 1,
-		},
-	},
-	.num_consumer_supplies	= 1,
-	.consumer_supplies	= &max8997_buck2,
-};
-
-static struct regulator_init_data max8997_buck3_data = {
-	.constraints	= {
-		.name		= "VDD_G3D_SMDK4X12",
-		.min_uV		= 950000,
-		.max_uV		= 1150000,
-		.valid_ops_mask	= REGULATOR_CHANGE_VOLTAGE |
-				  REGULATOR_CHANGE_STATUS,
-		.state_mem	= {
-			.disabled	= 1,
-		},
-	},
-	.num_consumer_supplies	= 1,
-	.consumer_supplies	= &max8997_buck3,
-};
-
-static struct max8997_regulator_data smdk4x12_max8997_regulators[] = {
-	{ MAX8997_BUCK1, &max8997_buck1_data },
-	{ MAX8997_BUCK2, &max8997_buck2_data },
-	{ MAX8997_BUCK3, &max8997_buck3_data },
-};
-
-static struct max8997_platform_data smdk4x12_max8997_pdata = {
-	.num_regulators	= ARRAY_SIZE(smdk4x12_max8997_regulators),
-	.regulators	= smdk4x12_max8997_regulators,
-
-	.buck1_voltage[0] = 1100000,	/* 1.1V */
-	.buck1_voltage[1] = 1100000,	/* 1.1V */
-	.buck1_voltage[2] = 1100000,	/* 1.1V */
-	.buck1_voltage[3] = 1100000,	/* 1.1V */
-	.buck1_voltage[4] = 1100000,	/* 1.1V */
-	.buck1_voltage[5] = 1100000,	/* 1.1V */
-	.buck1_voltage[6] = 1000000,	/* 1.0V */
-	.buck1_voltage[7] = 950000,	/* 0.95V */
-
-	.buck2_voltage[0] = 1100000,	/* 1.1V */
-	.buck2_voltage[1] = 1000000,	/* 1.0V */
-	.buck2_voltage[2] = 950000,	/* 0.95V */
-	.buck2_voltage[3] = 900000,	/* 0.9V */
-	.buck2_voltage[4] = 1100000,	/* 1.1V */
-	.buck2_voltage[5] = 1000000,	/* 1.0V */
-	.buck2_voltage[6] = 950000,	/* 0.95V */
-	.buck2_voltage[7] = 900000,	/* 0.9V */
-
-	.buck5_voltage[0] = 1100000,	/* 1.1V */
-	.buck5_voltage[1] = 1100000,	/* 1.1V */
-	.buck5_voltage[2] = 1100000,	/* 1.1V */
-	.buck5_voltage[3] = 1100000,	/* 1.1V */
-	.buck5_voltage[4] = 1100000,	/* 1.1V */
-	.buck5_voltage[5] = 1100000,	/* 1.1V */
-	.buck5_voltage[6] = 1100000,	/* 1.1V */
-	.buck5_voltage[7] = 1100000,	/* 1.1V */
-};
-#ifdef CONFIG_REGULATOR_MAX77686
-static struct regulator_consumer_supply max77686_buck1 =
-REGULATOR_SUPPLY("vdd_mif", NULL);
-
-static struct regulator_consumer_supply max77686_buck2 =
-REGULATOR_SUPPLY("vdd_arm", NULL);
-
-static struct regulator_consumer_supply max77686_buck3 =
-REGULATOR_SUPPLY("vdd_int", NULL);
-
-static struct regulator_consumer_supply max77686_buck4 =
-REGULATOR_SUPPLY("vdd_g3d", NULL);
-
-static struct regulator_consumer_supply max77686_ldo11_consumer =
-REGULATOR_SUPPLY("vdd_ldo11", NULL);
-
-static struct regulator_consumer_supply max77686_ldo14_consumer =
-REGULATOR_SUPPLY("vdd_ldo14", NULL);
-
-static struct regulator_consumer_supply max77686_ldo12_consumer =
-REGULATOR_SUPPLY("vusb_a", NULL);
-
-static struct regulator_consumer_supply max77686_ldo15_consumer =
-REGULATOR_SUPPLY("vusb_d", NULL);
-
-static struct regulator_consumer_supply max77686_ldo16_consumer =
-REGULATOR_SUPPLY("vdd_hsic", NULL);
-
-static struct regulator_consumer_supply max77686_ldo8_consumer[] = {
-REGULATOR_SUPPLY("vdd", "exynos4-hdmi"),
-REGULATOR_SUPPLY("vdd_pll", "exynos4-hdmi"),
-REGULATOR_SUPPLY("vdd8_mipi", NULL),
-};
-
-static struct regulator_consumer_supply max77686_ldo10_consumer[] = {
-REGULATOR_SUPPLY("vdd_osc", "exynos4-hdmi"),
-REGULATOR_SUPPLY("vdd10_mipi", NULL),
-REGULATOR_SUPPLY("vdd_tmu", NULL),
-};
-
-static struct regulator_init_data max77686_ldo8_data = {
-	.constraints = {
-		.name		= "vdd_ldo8 range",
-		.min_uV		= 1000000,
-		.max_uV		= 1000000,
-		.boot_on	= 1,
-		.valid_ops_mask = REGULATOR_CHANGE_STATUS,
-		.state_mem	= {
-			.disabled	= 1,
-			.mode		= REGULATOR_MODE_STANDBY,
-		},
-		.initial_state = PM_SUSPEND_MEM, 
-	},
-	.num_consumer_supplies	= ARRAY_SIZE(max77686_ldo8_consumer),
-	.consumer_supplies	= max77686_ldo8_consumer,
-};
-
-static struct regulator_init_data max77686_ldo10_data = {
-	.constraints = {
-		.name		= "vdd_ldo10 range",
-		.min_uV		= 1800000,
-		.max_uV		= 1800000,
-		.boot_on	= 1,
-		.valid_ops_mask = REGULATOR_CHANGE_STATUS,
-		.state_mem	= {
-			.disabled	= 1,
-			.mode		= REGULATOR_MODE_STANDBY,
-		},
-		.initial_state = PM_SUSPEND_MEM, 
-	},
-	.num_consumer_supplies	= ARRAY_SIZE(max77686_ldo10_consumer),
-	.consumer_supplies	= max77686_ldo10_consumer,
-};
-
-static struct regulator_init_data max77686_ldo12_data = {
-	.constraints = {
-		.name		= "vdd_ldo12 range",
-		.min_uV		= 3000000,
-		.max_uV		= 3300000,
-		.boot_on	= 1,
-		.valid_ops_mask = REGULATOR_CHANGE_STATUS,
-		.always_on	= 1,
-		.state_mem	= {
-			.disabled	= 1,
-			.mode		= REGULATOR_MODE_STANDBY,
-		},
-		.initial_state = PM_SUSPEND_MEM, 
-	},
-	.num_consumer_supplies	= 1,
-	.consumer_supplies	= &max77686_ldo12_consumer,
-};
-
-static struct regulator_init_data max77686_ldo15_data = {
-	.constraints = {
-		.name		= "vdd_ldo15 range",
-		.min_uV		= 1000000,
-		.max_uV		= 1000000,
-		.boot_on	= 1,
-		.valid_ops_mask = REGULATOR_CHANGE_STATUS,
-		.always_on	= 1,
-		.state_mem	= {
-			.disabled	= 1,
-			.mode		= REGULATOR_MODE_STANDBY,
-		},
-		.initial_state = PM_SUSPEND_MEM, 
-	},
-	.num_consumer_supplies	= 1,
-	.consumer_supplies	= &max77686_ldo15_consumer,
-};
-
-static struct regulator_init_data max77686_ldo16_data = {
-	.constraints = {
-		.name		= "vdd_ldo16 range",
-		.min_uV		= 1800000,
-		.max_uV		= 1800000,
-		.boot_on	= 1,
-		.valid_ops_mask = REGULATOR_CHANGE_STATUS,
-		.always_on	= 1,
-		.state_mem	= {
-			.disabled	= 1,
-			.mode		= REGULATOR_MODE_STANDBY,
-		},
-		.initial_state = PM_SUSPEND_MEM, 
-	},
-	.num_consumer_supplies	= 1,
-	.consumer_supplies	= &max77686_ldo16_consumer,
-};
-
-static struct regulator_init_data max77686_buck1_data = {
-	.constraints = {
-		.name		= "vdd_mif range",
-		.min_uV		= 800000,
-		.max_uV		= 1300000,
-		.always_on	= 1,
-		.boot_on	= 1,
-		.valid_ops_mask = REGULATOR_CHANGE_VOLTAGE |
-				  REGULATOR_CHANGE_STATUS,
-		.state_mem	= {
-			.disabled	= 1,
-			.mode		= REGULATOR_MODE_STANDBY,
-		},
-		.initial_state = PM_SUSPEND_MEM, 
-	},
-	.num_consumer_supplies = 1,
-	.consumer_supplies = &max77686_buck1,
-};
-
-static struct regulator_init_data max77686_buck2_data = {
-	.constraints = {
-		.name		= "vdd_arm range",
-		.min_uV		= 800000,
-		.max_uV		= 1350000,
-		.always_on	= 1,
-		.boot_on	= 1,
-		.valid_ops_mask = REGULATOR_CHANGE_VOLTAGE |
-				  REGULATOR_CHANGE_STATUS,
-		.state_mem	= {
-			.disabled	= 1,
-			.mode		= REGULATOR_MODE_STANDBY,
-		},
-		.initial_state = PM_SUSPEND_MEM, 
-	},
-	.num_consumer_supplies 	= 1,
-	.consumer_supplies	= &max77686_buck2,
-};
-
-static struct regulator_init_data max77686_buck3_data = {
-	.constraints = {
-		.name		= "vdd_int range",
-		.min_uV		= 800000,
-		.max_uV		= 1150000,
-		.always_on	= 1,
-		.boot_on	= 1,
-		.valid_ops_mask = REGULATOR_CHANGE_VOLTAGE |
-				  REGULATOR_CHANGE_STATUS,
-		.state_mem	= {
-			.disabled	= 1,
-			.mode		= REGULATOR_MODE_STANDBY,
-		},
-		.initial_state = PM_SUSPEND_MEM, 
-	},
-	.num_consumer_supplies = 1,
-	.consumer_supplies = &max77686_buck3,
-};
-
-static struct regulator_init_data max77686_buck4_data = {
-	.constraints = {
-		.name		= "vdd_g3d range",
-		.min_uV		= 850000,
-		.max_uV		= 1200000,
-		.boot_on	= 1,
-		.always_on	= 1,
-		.valid_ops_mask = REGULATOR_CHANGE_VOLTAGE |
-				  REGULATOR_CHANGE_STATUS,
-		.state_mem	= {
-			.disabled	= 1,
-			.mode		= REGULATOR_MODE_STANDBY,
-		},
-		.initial_state = PM_SUSPEND_MEM, 
-	},
-	.num_consumer_supplies = 1,
-	.consumer_supplies = &max77686_buck4,
-};
-
-static struct regulator_init_data __initdata max77686_ldo11_data = {
-	.constraints	= {
-		.name		= "vdd_ldo11 range",
-		.min_uV		= 1900000,
-		.max_uV		= 1900000,
-		.apply_uV	= 1,
-		.state_mem	= {
-			.disabled	= 1,
-			.mode		= REGULATOR_MODE_STANDBY,
-		},
-	},
-	.num_consumer_supplies	= 1,
-	.consumer_supplies	= &max77686_ldo11_consumer,
-};
-
-static struct regulator_init_data __initdata max77686_ldo14_data = {
-	.constraints	= {
-		.name		= "vdd_ldo14 range",
-		.min_uV		= 1900000,
-		.max_uV		= 1900000,
-		.apply_uV	= 1,
-		.always_on	= 1,
-		.state_mem	= {
-			.disabled	= 1,
-			.mode		= REGULATOR_MODE_STANDBY,
-		},
-	},
-	.num_consumer_supplies	= 1,
-	.consumer_supplies	= &max77686_ldo14_consumer,
-};
-
-static struct regulator_init_data __initdata max77686_always_on = {
-	.constraints = {
-		.always_on 	= 1,
-		.state_mem 	= {
-			.disabled	= 1,
-			.mode		= REGULATOR_MODE_STANDBY,
-		},
-	},
-};
-
-static void max77686_populate_pdata (void)
-{
-	int i;
-
-	/* LDOs[0-7] and BUCKs[5-7] are not initialized yet but required to
-	 * be always enabled for stability */
-	for (i = 0; i <= MAX77686_LDO7; i++)
-		max77686_regulators[i].initdata = &max77686_always_on;
-	max77686_regulators[MAX77686_BUCK5].initdata = &max77686_always_on;
-	max77686_regulators[MAX77686_BUCK6].initdata = &max77686_always_on;
-	max77686_regulators[MAX77686_BUCK7].initdata = &max77686_always_on;
-
-	max77686_regulators[MAX77686_BUCK1].initdata = &max77686_buck1_data;
-	max77686_regulators[MAX77686_BUCK2].initdata = &max77686_buck2_data;
-	max77686_regulators[MAX77686_BUCK3].initdata = &max77686_buck3_data;
-	max77686_regulators[MAX77686_BUCK4].initdata = &max77686_buck4_data;
-	max77686_regulators[MAX77686_LDO8].initdata  = &max77686_ldo8_data;
-	max77686_regulators[MAX77686_LDO10].initdata = &max77686_ldo10_data;
-	max77686_regulators[MAX77686_LDO11].initdata = &max77686_ldo11_data;
-	max77686_regulators[MAX77686_LDO12].initdata = &max77686_ldo12_data;
-	max77686_regulators[MAX77686_LDO14].initdata = &max77686_ldo14_data;
-	max77686_regulators[MAX77686_LDO15].initdata = &max77686_ldo15_data;
-	max77686_regulators[MAX77686_LDO16].initdata = &max77686_ldo16_data;
-
-	regulator_has_full_constraints();
-}
-
-static struct max77686_platform_data smdk4412_max77686_pdata = {
-	.num_regulators = ARRAY_SIZE(max77686_regulators),
-	.regulators = max77686_regulators,
-};
-#endif
-#ifdef CONFIG_REGULATOR_S5M8767
-/* S5M8767 Regulator */
-static int s5m_cfg_irq(void)
-{
-        /* AP_PMIC_IRQ: EINT26 */
-	s3c_gpio_cfgpin(EXYNOS4_GPX3(2), S3C_GPIO_SFN(0xF));
-	s3c_gpio_setpull(EXYNOS4_GPX3(2), S3C_GPIO_PULL_UP);
-        return 0;
-}
-static struct regulator_consumer_supply s5m8767_buck1_consumer =
-REGULATOR_SUPPLY("vdd_mif", NULL);
-
-static struct regulator_consumer_supply s5m8767_buck2_consumer =
-REGULATOR_SUPPLY("vdd_arm", NULL);
-
-static struct regulator_consumer_supply s5m8767_buck3_consumer =
-REGULATOR_SUPPLY("vdd_int", NULL);
-
-static struct regulator_consumer_supply s5m8767_buck4_consumer =
-REGULATOR_SUPPLY("vdd_g3d", NULL);
-
-static struct regulator_consumer_supply s5m8767_ldo11_consumer =
-REGULATOR_SUPPLY("vdd_ldo11", NULL);
-
-static struct regulator_consumer_supply s5m8767_ldo14_consumer =
-REGULATOR_SUPPLY("vdd_ldo14", NULL);
-
-static struct regulator_consumer_supply s5m8767_ldo12_consumer =
-REGULATOR_SUPPLY("vusb_a", NULL);
-
-static struct regulator_consumer_supply s5m8767_ldo15_consumer =
-REGULATOR_SUPPLY("vusb_d", NULL);
-
-static struct regulator_consumer_supply s5m8767_ldo16_consumer =
-REGULATOR_SUPPLY("vdd_hsic", NULL);
-
-static struct regulator_consumer_supply s5m8767_ldo8_consumer[] = {
-REGULATOR_SUPPLY("vdd", "exynos4-hdmi"),
-REGULATOR_SUPPLY("vdd_pll", "exynos4-hdmi"),
-REGULATOR_SUPPLY("vdd8_mipi", NULL),
-};
-static struct regulator_consumer_supply s5m8767_ldo10_consumer[] = {
-REGULATOR_SUPPLY("vdd_osc", "exynos4-hdmi"),
-REGULATOR_SUPPLY("vdd10_mipi", NULL),
-REGULATOR_SUPPLY("vdd_tmu", NULL),
-};
-
-static struct regulator_init_data s5m8767_ldo8_data = {
-	.constraints	={
-		.name		= "vdd_ldo8 range",
-		.min_uV		= 1000000,
-		.max_uV         = 1000000,
-		.boot_on        = 1,
-		.always_on      = 1,
-		.valid_ops_mask = REGULATOR_CHANGE_STATUS,
-		.state_mem      = {
-			.disabled       = 1,
-			.mode  	        = REGULATOR_MODE_STANDBY,
-		},
-		.initial_state = PM_SUSPEND_MEM,
-	},
-	.num_consumer_supplies  = ARRAY_SIZE(s5m8767_ldo8_consumer),
-	.consumer_supplies      = s5m8767_ldo8_consumer,
-};
-
-static struct regulator_init_data s5m8767_ldo10_data = {
-	.constraints = {
-		.name           = "vdd_ldo10 range",
-		.min_uV         = 1800000,
-		.max_uV         = 1800000,
-		.boot_on        = 1,
-		.valid_ops_mask = REGULATOR_CHANGE_STATUS,
-		.state_mem      = {
-			.disabled       = 1,
-			.mode           = REGULATOR_MODE_STANDBY,
-		},
-		.initial_state = PM_SUSPEND_MEM,
-	},
-	.num_consumer_supplies  = ARRAY_SIZE(s5m8767_ldo10_consumer),
-	.consumer_supplies      = s5m8767_ldo10_consumer,
-};
-
-static struct regulator_init_data s5m8767_ldo12_data = {
-	.constraints = {
-		.name           = "vdd_ldo12 range",
-		.min_uV         = 3000000,
-		.max_uV         = 3000000,
-		.boot_on        = 1,
-		.valid_ops_mask = REGULATOR_CHANGE_STATUS | REGULATOR_CHANGE_VOLTAGE,
-		.always_on      = 1,
-		.state_mem      = {
-			.disabled       = 1,
-			.mode           = REGULATOR_MODE_STANDBY,
-		},
-	.initial_state = PM_SUSPEND_MEM,
-	},
-	.num_consumer_supplies  = 1,
-	.consumer_supplies      = &s5m8767_ldo12_consumer,
-};
-
-static struct regulator_init_data s5m8767_ldo15_data = {
-	.constraints = {
-		.name           = "vdd_ldo15 range",
-		.min_uV         = 1000000,
-		.max_uV         = 1000000,
-		.boot_on        = 1,
-		.valid_ops_mask = REGULATOR_CHANGE_STATUS,
-		.always_on      = 1,
-		.state_mem      = {
-			.disabled       = 1,
-			.mode           = REGULATOR_MODE_STANDBY,
-		},
-		.initial_state = PM_SUSPEND_MEM,
-	},
-	.num_consumer_supplies  = 1,
-	.consumer_supplies      = &s5m8767_ldo15_consumer,
-};
-
-static struct regulator_init_data s5m8767_ldo16_data = {
-	.constraints = {
-		.name           = "vdd_ldo16 range",
-		.min_uV         = 1800000,
-		.max_uV         = 1800000,
-		.boot_on        = 1,
-		.valid_ops_mask = REGULATOR_CHANGE_STATUS,
-		.always_on      = 1,
-		.state_mem      = {
-			.disabled       = 1,
-			.mode           = REGULATOR_MODE_STANDBY,
-		},
-		.initial_state = PM_SUSPEND_MEM,
-	},
-	.num_consumer_supplies  = 1,
-	.consumer_supplies      = &s5m8767_ldo16_consumer,
-};
-
-static struct regulator_init_data __initdata s5m8767_ldo11_data = {
-	.constraints    = {
-		.name           = "vdd_ldo11 range",
-		.min_uV         = 1800000,
-		.max_uV         = 1800000,
-		.always_on      = 1,
-		.apply_uV       = 1,
-		.state_mem      = {
-			.disabled       = 1,
-			.mode           = REGULATOR_MODE_STANDBY,
-		},
-	},
-	.num_consumer_supplies  = 1,
-	.consumer_supplies      = &s5m8767_ldo11_consumer,
-};
-
-static struct regulator_init_data __initdata s5m8767_ldo14_data = {
-	.constraints    = {
-		.name           = "vdd_ldo14 range",
-		.min_uV         = 1800000,
-		.max_uV         = 1800000,
-		.apply_uV       = 1,
-		.always_on      = 1,
-		.state_mem      = {
-			.disabled       = 1,
-			.mode           = REGULATOR_MODE_STANDBY,
-		},
-	},
-	.num_consumer_supplies  = 1,
-	.consumer_supplies      = &s5m8767_ldo14_consumer,
-};
-
-static struct regulator_init_data s5m8767_buck1_data = {
-	.constraints    = {
-		.name           = "vdd_mif range",
-		.min_uV         = 800000,
-		.max_uV         = 1100000,
-		.valid_ops_mask = REGULATOR_CHANGE_VOLTAGE |
-			REGULATOR_CHANGE_STATUS,
-		.always_on = 1,
-		.boot_on = 1,
-		.state_mem      = {
-			.disabled       = 1,
-		},
-	},
-	.num_consumer_supplies  = 1,
-	.consumer_supplies      = &s5m8767_buck1_consumer,
-};
-
-static struct regulator_init_data s5m8767_buck2_data = {
-	.constraints    = {
-		.name           = "vdd_arm range",
-		.min_uV         =  800000,
-		.max_uV         = 1350000,
-		.valid_ops_mask = REGULATOR_CHANGE_VOLTAGE |
-			REGULATOR_CHANGE_STATUS,
-		.always_on = 1,
-		.boot_on = 1,
-		.state_mem      = {
-				.disabled       = 1,
-		},
-	},
-	.num_consumer_supplies  = 1,
-	.consumer_supplies      = &s5m8767_buck2_consumer,
-};
-
-static struct regulator_init_data s5m8767_buck3_data = {
-	.constraints    = {
-		.name           = "vdd_int range",
-		.min_uV         =  800000,
-		.max_uV         = 1150000,
-		.apply_uV       = 1,
-		.valid_ops_mask = REGULATOR_CHANGE_VOLTAGE |
-				REGULATOR_CHANGE_STATUS,
-		.always_on = 1,
-		.boot_on = 1,
-		.state_mem      = {
-			.uV             = 1100000,
-			.mode           = REGULATOR_MODE_NORMAL,
-			.disabled       = 1,
-		},
-	},
-	.num_consumer_supplies  = 1,
-	.consumer_supplies      = &s5m8767_buck3_consumer,
-};
-static struct regulator_init_data s5m8767_buck4_data = {
-	.constraints    = {
-		.name           = "vdd_g3d range",
-		.min_uV         = 850000,
-		.max_uV         = 1200000,
-		.valid_ops_mask = REGULATOR_CHANGE_VOLTAGE |
-				REGULATOR_CHANGE_STATUS,
-		.always_on = 1,
-		.boot_on = 1,
-		.state_mem      = {
-			.disabled       = 1,
-			},
-		},
-	.num_consumer_supplies = 1,
-	.consumer_supplies = &s5m8767_buck4_consumer,
-};
-
-static struct s5m_regulator_data pegasus_regulators[] = {
-	{ S5M8767_LDO8,  &s5m8767_ldo8_data},
-	{ S5M8767_LDO10, &s5m8767_ldo10_data},
-	{ S5M8767_LDO11, &s5m8767_ldo11_data},
-	{ S5M8767_LDO12, &s5m8767_ldo12_data},
-	{ S5M8767_LDO14, &s5m8767_ldo14_data},
-	{ S5M8767_LDO15, &s5m8767_ldo15_data},
-	{ S5M8767_LDO16, &s5m8767_ldo16_data},
-	{ S5M8767_BUCK1, &s5m8767_buck1_data },
-	{ S5M8767_BUCK2, &s5m8767_buck2_data },
-	{ S5M8767_BUCK3, &s5m8767_buck3_data },
-	{ S5M8767_BUCK4, &s5m8767_buck4_data },
-};
-
-struct s5m_opmode_data s5m8767_opmode_data[S5M8767_REG_MAX] = {
-	[S5M8767_BUCK1] = {S5M8767_BUCK1, S5M_OPMODE_SUSPEND},
-	[S5M8767_BUCK2] = {S5M8767_BUCK2, S5M_OPMODE_SUSPEND},
-	[S5M8767_BUCK3] = {S5M8767_BUCK3, S5M_OPMODE_SUSPEND},
-	[S5M8767_BUCK4] = {S5M8767_BUCK4, S5M_OPMODE_SUSPEND},
-	[S5M8767_LDO8]  = {S5M8767_LDO8,  S5M_OPMODE_SUSPEND},
-	[S5M8767_LDO10] = {S5M8767_LDO10, S5M_OPMODE_SUSPEND},
-	[S5M8767_LDO11] = {S5M8767_LDO11, S5M_OPMODE_SUSPEND},
-	[S5M8767_LDO12] = {S5M8767_LDO12, S5M_OPMODE_SUSPEND},
-	[S5M8767_LDO14] = {S5M8767_LDO14, S5M_OPMODE_SUSPEND},
-	[S5M8767_LDO15] = {S5M8767_LDO15, S5M_OPMODE_SUSPEND},
-	[S5M8767_LDO16] = {S5M8767_LDO16, S5M_OPMODE_SUSPEND},
-};
-
-static struct s5m_platform_data exynos4_s5m8767_pdata = {
-	.device_type            = S5M8767X,
-	.irq_base               = IRQ_BOARD_START,
-	.num_regulators         = ARRAY_SIZE(pegasus_regulators),
-	.regulators             = pegasus_regulators,
-	.cfg_pmic_irq           = s5m_cfg_irq,
-	.wakeup                 = 1,
-	.opmode            = s5m8767_opmode_data,
-	//        .wtsr_smpl              = 1,
-
-	.buck_default_idx       = 1,
-	.buck_gpios[0]          = EXYNOS4_GPL0(3),
-	.buck_gpios[1]          = EXYNOS4_GPL0(4),
-	.buck_gpios[2]          = EXYNOS4_GPL0(6),
-
-	.buck_ramp_delay        = 25,
-	.buck2_ramp_enable      = true,
-	.buck3_ramp_enable      = true,
-	.buck4_ramp_enable      = true,
-#if 0
-	.buck_ds[0]             = EXYNOS4_GPL0(0),
-	.buck_ds[1]             = EXYNOS4_GPL0(1),
-	.buck_ds[2]             = EXYNOS4_GPL0(2),
-	.buck2_init             = 1100000,
-	.buck3_init             = 1000000,
-	.buck4_init             = 1000000,
-#endif
-};
-/* End of S5M8767 */
-#endif
 
 static struct regulator_consumer_supply wm8994_fixed_voltage0_supplies[] = {
         REGULATOR_SUPPLY("AVDD2", "1-001a"),
@@ -930,37 +270,12 @@ static struct s3c2410_platform_i2c tiny4412_i2c0_data __initdata = {
 	.sda_delay		= 100,
 };
 
-#ifdef CONFIG_SND_SOC_WM8960_TINY4412
-#include <sound/wm8960.h>
-static struct wm8960_data wm8960_pdata = {
-	.capless	= 0,
-	.dres		= WM8960_DRES_400R,
-};
-#endif
 
 static struct i2c_board_info smdk4x12_i2c_devs0[] __initdata = {
-#ifdef CONFIG_SND_SOC_WM8960_TINY4412
 	{
-		I2C_BOARD_INFO("wm8960", 0x1a),
-		.platform_data = &wm8960_pdata,
+		I2C_BOARD_INFO("axp229", 0x68>> 1),
 	},
-#endif
-#if 0
-#ifdef CONFIG_REGULATOR_S5M8767
-	{
-		I2C_BOARD_INFO("s5m87xx", 0xCC >> 1),
-		.platform_data	= &exynos4_s5m8767_pdata,
-		.irq		= IRQ_EINT(26),
-	},
-#endif
-#ifdef CONFIG_REGULATOR_MAX77686
-	{
-		I2C_BOARD_INFO("max77686", (0x12 >> 1)),
-		.platform_data	= &smdk4412_max77686_pdata,
-		.irq		= IRQ_EINT(26),
-	},
-#endif
-#endif
+
 };
 
 #ifdef CONFIG_TOUCHSCREEN_FT5X0X
@@ -983,22 +298,16 @@ static struct s3c2410_platform_i2c tiny4412_i2c1_data __initdata = {
 };
 
 static struct i2c_board_info smdk4x12_i2c_devs1[] __initdata = {
-#ifdef CONFIG_TOUCHSCREEN_FT5X0X
 	{
-		I2C_BOARD_INFO("ft5x0x_ts", (0x70 >> 1)),
-		.platform_data = &ft5x0x_pdata,
+		I2C_BOARD_INFO("wm8994", 0x1a),
+		.platform_data	= &wm8994_platform_data,
 	},
-#endif
-#ifdef CONFIG_SND_SOC_SAMSUNG_SMDK_WM8994 
-	{ 
-		I2C_BOARD_INFO("wm8994", 0x1a), 
-	  	.platform_data  = &wm8994_platform_data,
-	}
-#endif
 };
 
 static struct i2c_board_info smdk4x12_i2c_devs2[] __initdata = {
-	/* nothing here yet */
+	{
+		I2C_BOARD_INFO("s5p_ddc", (0x74 >> 1)),
+	},
 };
 
 
@@ -1207,21 +516,15 @@ static struct s3c2410_platform_i2c tiny4412_i2c3_data __initdata = {
 };
 
 static struct i2c_board_info smdk4x12_i2c_devs3[] __initdata = {
-#ifdef CONFIG_MXC_MMA845X
-	{
-		.type = "mma845x",
-		.addr = 0x1D,		/*mma845x i2c slave address*/
-		.platform_data = (void *)&mma845x_data,
-	},
-#endif
-#ifdef CONFIG_SENSORS_MMA7660
-	{
-		I2C_BOARD_INFO("mma7660", 0x4c),
-		.platform_data = &mma7660_pdata,
-	},
-#endif
+    { I2C_BOARD_INFO("ft5x0x_ts", 0x38),   },
 };
 
+static struct i2c_board_info smdk4x12_i2c_devs5[] __initdata = {
+    {   
+        I2C_BOARD_INFO("mma865x",    0x1D),
+    },
+
+};
 /* I2C module and id for HDMIPHY */
 static struct i2c_board_info smdk4x12_i2c_hdmiphy[] __initdata = {
 	{ I2C_BOARD_INFO("hdmiphy-exynos4412", 0x38), }
@@ -1245,9 +548,6 @@ static struct s3c2410_platform_i2c tiny4412_i2c7_data __initdata = {
 };
 
 static struct i2c_board_info smdk4x12_i2c_devs7[] __initdata = {
-	{
-		I2C_BOARD_INFO("s5p_ddc", (0x74 >> 1)),
-	},
 };
 
 static void __init smdk4x12_touch_init(void)
@@ -2210,11 +1510,11 @@ static void __init smdk4x12_machine_init(void)
 	s3c_adc_set_platdata(NULL);
 	s3c_adc_setname("samsung-adc-v4");
 
-	s3c_i2c0_set_platdata(&tiny4412_i2c0_data);
+	s3c_i2c0_set_platdata(NULL);
 	i2c_register_board_info(0, smdk4x12_i2c_devs0,
 			ARRAY_SIZE(smdk4x12_i2c_devs0));
 
-	s3c_i2c1_set_platdata(&tiny4412_i2c1_data);
+	s3c_i2c1_set_platdata(NULL);
 	i2c_register_board_info(1, smdk4x12_i2c_devs1,
 			ARRAY_SIZE(smdk4x12_i2c_devs1));
 
@@ -2225,6 +1525,10 @@ static void __init smdk4x12_machine_init(void)
 	s3c_i2c3_set_platdata(&tiny4412_i2c3_data);
 	i2c_register_board_info(3, smdk4x12_i2c_devs3,
 			ARRAY_SIZE(smdk4x12_i2c_devs3));
+			
+	s3c_i2c4_set_platdata(NULL);
+	i2c_register_board_info(5, smdk4x12_i2c_devs5, 
+			ARRAY_SIZE(smdk4x12_i2c_devs5));
 
 	s3c_i2c4_set_platdata(NULL);
 
@@ -2326,6 +1630,40 @@ static void __init smdk4x12_machine_init(void)
 	ppmu_init(&exynos_ppmu[PPMU_CPU], &exynos4_busfreq.dev);
 #endif
 	set_tmu_platdata();
+
+   	//开启audio的电源
+    	gpio_request(EXYNOS4X12_GPM2(1), "GPM2_1");
+	s3c_gpio_setpull(EXYNOS4X12_GPM2(1), S3C_GPIO_PULL_UP);
+	s3c_gpio_slp_setpull_updown(EXYNOS4X12_GPM2(1), S3C_GPIO_PULL_UP);
+	s3c_gpio_slp_cfgpin(EXYNOS4X12_GPM2(1), S3C_GPIO_SLP_OUT0);
+    	gpio_direction_output(EXYNOS4X12_GPM2(1), 1);
+    	gpio_free(EXYNOS4X12_GPM2(1));
+	gpio_request(EXYNOS4_GPX0(0), "GPX0");
+	gpio_direction_output(EXYNOS4_GPX0(0), 1);
+	gpio_free(EXYNOS4_GPX0(0));
+
+    	//复位usb phy
+    	gpio_request(GPIO_HUB_RESET, "GPIO_HUB_RESET");
+   	gpio_direction_output(GPIO_HUB_RESET, 1);
+    	s3c_gpio_setpull(GPIO_HUB_RESET, S3C_GPIO_PULL_NONE);
+    	gpio_free(GPIO_HUB_RESET);
+
+    	gpio_request(GPIO_HUB_CONNECT, "GPIO_HUB_CONNECT");
+    	gpio_direction_output(GPIO_HUB_CONNECT, 1);
+    	s3c_gpio_setpull(GPIO_HUB_CONNECT, S3C_GPIO_PULL_NONE);
+    	gpio_free(GPIO_HUB_CONNECT);
+
+    	//开启USB PHY的电源
+    	gpio_request_one(EXYNOS4X12_GPM2(0),GPIOF_OUT_INIT_LOW, "GPM2");
+    	gpio_set_value(EXYNOS4X12_GPM2(0), 1);
+    	gpio_free(EXYNOS4X12_GPM2(0));
+        //开启audio codec的电源
+        gpio_request(EXYNOS4_GPX1(4), "GPX1");
+        gpio_direction_output(EXYNOS4_GPX1(4), 1);
+        gpio_free(EXYNOS4_GPX1(4));
+        gpio_request(EXYNOS4_GPX0(6), "GPX0");
+        gpio_direction_output(EXYNOS4_GPX0(6), 1);
+        gpio_free(EXYNOS4_GPX0(6));
 }
 
 MACHINE_START(SMDK4412, "TINY4412")

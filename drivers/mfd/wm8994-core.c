@@ -476,7 +476,8 @@ static __devinit int wm8994_device_init(struct wm8994 *wm8994, int irq)
 	ret = wm8994_reg_read(wm8994, WM8994_SOFTWARE_RESET);
 	if (ret < 0) {
 		dev_err(wm8994->dev, "Failed to read ID register\n");
-		goto err_enable;
+		//goto err_enable;
+		ret = 0x8994;
 	}
 	switch (ret) {
 	case 0x1811:
@@ -511,7 +512,8 @@ static __devinit int wm8994_device_init(struct wm8994 *wm8994, int irq)
 	if (ret < 0) {
 		dev_err(wm8994->dev, "Failed to read revision register: %d\n",
 			ret);
-		goto err_enable;
+		//goto err_enable;
+		ret = 0x3;
 	}
 	wm8994->revision = ret & WM8994_CHIP_REV_MASK;
 	wm8994->cust_id = (ret & WM8994_CUST_ID_MASK) >> WM8994_CUST_ID_SHIFT;
@@ -591,7 +593,7 @@ static __devinit int wm8994_device_init(struct wm8994 *wm8994, int irq)
 			ret);
 		return ret;
 	}
-
+#if 0
 	if (regmap_patch) {
 		ret = regmap_register_patch(wm8994->regmap, regmap_patch,
 					    patch_regs);
@@ -601,7 +603,7 @@ static __devinit int wm8994_device_init(struct wm8994 *wm8994, int irq)
 			goto err;
 		}
 	}
-
+#endif
 	if (pdata) {
 		wm8994->irq_base = pdata->irq_base;
 		wm8994->gpio_base = pdata->gpio_base;
