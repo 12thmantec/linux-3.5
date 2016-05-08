@@ -566,10 +566,10 @@ static struct platform_pwm_backlight_data smdk4x12_bl_data = {
 };
 
 static struct s3c_fb_pd_win smdk4x12_fb_win0 = {
-	.xres			= 480,
-	.yres			= 800,
-	.virtual_x		= 480,
-	.virtual_y		= 800 * CONFIG_FB_S3C_NR_BUFFERS,
+	.xres			= 600,
+	.yres			= 1024,
+	.virtual_x		= 600,
+	.virtual_y		= 1024 * CONFIG_FB_S3C_NR_BUFFERS,
 	.max_bpp		= 32,
 	.default_bpp	= 24,
 	.width			= 66,
@@ -577,10 +577,10 @@ static struct s3c_fb_pd_win smdk4x12_fb_win0 = {
 };
 
 static struct s3c_fb_pd_win smdk4x12_fb_win1 = {
-	.xres			= 480,
-	.yres			= 800,
-	.virtual_x		= 480,
-	.virtual_y		= 800 * CONFIG_FB_S3C_NR_BUFFERS,
+	.xres			= 600,
+	.yres			= 1024,
+	.virtual_x		= 600,
+	.virtual_y		= 1024 * CONFIG_FB_S3C_NR_BUFFERS,
 	.max_bpp		= 32,
 	.default_bpp	= 24,
 	.width			= 66,
@@ -588,10 +588,10 @@ static struct s3c_fb_pd_win smdk4x12_fb_win1 = {
 };
 
 static struct s3c_fb_pd_win smdk4x12_fb_win2 = {
-	.xres			= 480,
-	.yres			= 800,
-	.virtual_x		= 480,
-	.virtual_y		= 800 * CONFIG_FB_S3C_NR_BUFFERS,
+	.xres			= 600,
+	.yres			= 1024,
+	.virtual_x		= 600,
+	.virtual_y		= 1024 * CONFIG_FB_S3C_NR_BUFFERS,
 	.max_bpp		= 32,
 	.default_bpp	= 24,
 	.width			= 66,
@@ -599,10 +599,10 @@ static struct s3c_fb_pd_win smdk4x12_fb_win2 = {
 };
 
 static struct s3c_fb_pd_win smdk4x12_fb_win3 = {
-	.xres			= 480,
-	.yres			= 800,
-	.virtual_x		= 480,
-	.virtual_y		= 800 * CONFIG_FB_S3C_NR_BUFFERS,
+	.xres			= 600,
+	.yres			= 1024,
+	.virtual_x		= 600,
+	.virtual_y		= 1024 * CONFIG_FB_S3C_NR_BUFFERS,
 	.max_bpp		= 32,
 	.default_bpp	= 24,
 	.width			= 66,
@@ -610,10 +610,10 @@ static struct s3c_fb_pd_win smdk4x12_fb_win3 = {
 };
 
 static struct s3c_fb_pd_win smdk4x12_fb_win4 = {
-	.xres			= 480,
-	.yres			= 800,
-	.virtual_x		= 480,
-	.virtual_y		= 800 * CONFIG_FB_S3C_NR_BUFFERS,
+	.xres			= 600,
+	.yres			= 1024,
+	.virtual_x		= 600,
+	.virtual_y		= 1024 * CONFIG_FB_S3C_NR_BUFFERS,
 	.max_bpp		= 32,
 	.default_bpp	= 24,
 	.width			= 66,
@@ -627,8 +627,8 @@ static struct fb_videomode smdk4x12_lcd_timing = {
 	.lower_margin	= 5,
 	.hsync_len	= 2,
 	.vsync_len	= 2,
-	.xres		= 480,
-	.yres		= 800,
+	.xres		= 1024,
+	.yres		= 600,
 };
 
 static struct s3c_fb_platdata smdk4x12_lcd0_pdata __initdata = {
@@ -950,60 +950,6 @@ static void __init tiny4412_wifi_init(void)
 	gpio_free(SDWIFI_GPIO_RESET);
 }
 
-#ifdef CONFIG_INPUT_GPIO
-static struct gpio_event_direct_entry tiny4412_key_map[] = {
-	{
-		.gpio	= EXYNOS4_GPX3(2),
-		.code	= KEY_MENU,
-	}, {
-		.gpio	= EXYNOS4_GPX3(3),
-		.code	= KEY_HOME,
-	}, {
-		.gpio	= EXYNOS4_GPX3(4),
-		.code	= KEY_BACK,
-	}, {
-		.gpio	= EXYNOS4_GPX3(5),
-		.code	= 353,	/* DPAD_CENTER */
-	},
-};
-
-static struct gpio_event_input_info tiny4412_key_info = {
-	.info.func			= gpio_event_input_func,
-	.info.no_suspend	= true,
-	.debounce_time.tv64	= 20 * NSEC_PER_MSEC,
-	.type				= EV_KEY,
-	.keymap				= tiny4412_key_map,
-	.keymap_size		= ARRAY_SIZE(tiny4412_key_map)
-};
-
-static struct gpio_event_info *tiny4412_input_info[] = {
-	&tiny4412_key_info.info,
-};
-
-static struct gpio_event_platform_data tiny4412_input_data = {
-	.names	= {
-		"tiny4412-key",
-		NULL,
-	},
-	.info		= tiny4412_input_info,
-	.info_count	= ARRAY_SIZE(tiny4412_input_info),
-};
-
-static struct platform_device tiny4412_input_device = {
-	.name	= GPIO_EVENT_DEV_NAME,
-	.id		= 0,
-	.dev	= {
-		.platform_data = &tiny4412_input_data,
-	},
-};
-
-static void tiny4412_key_info_fixup(void)
-{
-	/* Remove 2 hard key for special board */
-	tiny4412_key_info.keymap_size -= 2;
-}
-#endif
-
 #ifdef CONFIG_IR_GPIO_CIR
 #include <media/gpio-ir-recv.h>
 
@@ -1163,9 +1109,6 @@ static struct platform_device *smdk4x12_devices[] __initdata = {
 #endif
 	&tiny4412_device_1wire,
 	&tiny4412_device_adc,
-#ifdef CONFIG_INPUT_GPIO
-	&tiny4412_input_device,
-#endif
 #ifdef CONFIG_IR_GPIO_CIR
 	&tiny4412_device_gpiorc,
 #endif
@@ -1537,9 +1480,6 @@ static void __init smdk4x12_machine_init(void)
 	smdk4x12_touch_init();
 
 	if (is_board_rev_B()) {
-#ifdef CONFIG_INPUT_GPIO
-		tiny4412_key_info_fixup();
-#endif
 	} else {
 		tiny4412_wifi_init();
 	}

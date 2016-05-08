@@ -19,29 +19,29 @@
 /* s3cfb configs for supported LCD */
 
 static struct s3cfb_lcd wxga_hd700 = {
-	.width = 800,
-	.height = 1280,
-	.p_width = 94,
-	.p_height = 151,
-	.bpp = 24,
-	.freq = 60,
+	.width = 600,
+	.height = 1024,
+        .bpp = 24,
+        .freq = 60,
 
-	.timing = {
-		.h_fp = 20,
-		.h_bp = 20,
-		.h_sw = 24,
-		.v_fp =  4,
-		.v_fpe = 1,
-		.v_bp =  4,
-		.v_bpe = 1,
-		.v_sw =  8,
-	},
-	.polarity = {
-		.rise_vclk = 1,
-		.inv_hsync = 0,
-		.inv_vsync = 0,
-		.inv_vden = 0,
-	},
+        .timing = {
+                .h_fp = 8,
+                .h_bp = 13,
+                .h_sw = 3,
+                .v_fp = 5,
+                .v_fpe = 1,
+                .v_bp = 7,
+                .v_bpe = 1,
+                .v_sw = 1,
+        },
+
+        .polarity = {
+                .rise_vclk = 0,
+                .inv_hsync = 1,
+                .inv_vsync = 1,
+                .inv_vden = 0,
+        },
+
 };
 
 static struct s3cfb_lcd wvga_s70 = {
